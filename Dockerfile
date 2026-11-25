@@ -20,8 +20,11 @@ RUN npm run build
 # Main application container
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     procps \
     libnss3 \
@@ -61,10 +64,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN playwright install chromium && chmod -R a+rX /ms-playwright
 
-# Copy application code, excluding config files that will be mounted
+# Copy application code (secrets/dev files excluded via root .dockerignore)
 COPY . .
-# Remove config.yaml from container since it will be mounted as a volume
-RUN rm -rf /app/config.yaml
+# Remove config.yaml (mounted as volume) and raw frontend sources (only dist is needed)
+RUN rm -rf /app/config.yaml /app/frontend
 
 # Copy built frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist

@@ -1,0 +1,67 @@
+# VCS & IDE
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Sensitive local config, secrets & personal profiles (mounted at runtime)
+config.yaml
+local-profile/
+.env
+.env.*
+docker/.env
+!frontend/.env
+data/cv.md
+CV_*.md
+
+# Runtime & generated data (mounted as volumes)
+projects/
+projects_accepted/
+projects_rejected/
+projects_applied/
+projects_log/
+logs/
+*.log
+applications_status.json
+*.db
+*.sqlite
+*.sqlite3
+*.tmp
+*.bak
+
+# Python caches & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+venv/
+.venv/
+env/
+
+# Frontend build artifacts & local node_modules (built in frontend-builder stage)
+frontend/node_modules/
+frontend/dist/
+
+# Dev, tests, docs, media & sample data not needed in runtime image
+tests/
+pytest.ini
+docs/
+media/
+examples/
+_projects/
+docker/
+Dockerfile
+docker-setup.sh
+server_control.sh
+com.projectbot.server.plist
+README.md
+RELEASES.md
+SCHEDULING_SYSTEM_README.md
+architecture.md
+setup.org
