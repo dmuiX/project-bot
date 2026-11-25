@@ -1,3 +1,12 @@
+{{- $hasInlineConfig := not (empty (or .Values.customConfig.configYaml .Values.customConfig.suitabilityRulesYaml .Values.customConfig.searchGroupFiltersYaml)) }}
+{{- $hasInlineProfiles := not (empty .Values.customConfig.profiles) }}
+{{- $hasInlineSecrets := not (empty .Values.secrets) }}
+{{- $configMapName := .Values.customConfig.existingConfigMap | default (ternary (printf "%s-config" (include "project-bot.fullname" .)) "" $hasInlineConfig) }}
+{{- $profilesConfigMapName := .Values.customConfig.existingProfilesConfigMap | default (ternary (printf "%s-profiles" (include "project-bot.fullname" .)) "" $hasInlineProfiles) }}
+{{- $secretName := .Values.existingSecret | default (ternary (printf "%s-secrets" (include "project-bot.fullname" .)) "" $hasInlineSecrets) }}
+{{- $mountConfigYaml := or (and (not .Values.customConfig.existingConfigMap) (not (empty .Values.customConfig.configYaml))) (and (not (empty .Values.customConfig.existingConfigMap)) .Values.customConfig.mountConfigYaml) }}
+{{- $mountSuitabilityRules := or (and (not .Values.customConfig.existingConfigMap) (not (empty .Values.customConfig.suitabilityRulesYaml))) (and (not (empty .Values.customConfig.existingConfigMap)) .Values.customConfig.mountSuitabilityRules) }}
+{{- $mountSearchGroupFilters := or (and (not .Values.customConfig.existingConfigMap) (not (empty .Values.customConfig.searchGroupFiltersYaml))) (and (not (empty .Values.customConfig.existingConfigMap)) .Values.customConfig.mountSearchGroupFilters) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,9 +22,21 @@ spec:
       {{- include "project-bot.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
+      {{- $hasAnnotations := or .Values.podAnnotations (and (not .Values.customConfig.existingConfigMap) $hasInlineConfig) (and (not .Values.customConfig.existingProfilesConfigMap) $hasInlineProfiles) (and (not .Values.existingSecret) $hasInlineSecrets) }}
+      {{- if $hasAnnotations }}
       annotations:
+        {{- if and (not .Values.customConfig.existingConfigMap) $hasInlineConfig }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and (not .Values.customConfig.existingProfilesConfigMap) $hasInlineProfiles }}
+        checksum/profiles: {{ include (print $.Template.BasePath "/configmap-profiles.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and (not .Values.existingSecret) $hasInlineSecrets }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       labels:
         {{- include "project-bot.labels" . | nindent 8 }}
@@ -46,10 +67,10 @@ spec:
               value: {{ $val | quote }}
             {{- end }}
           {{- end }}
-          {{- if .Values.existingSecret }}
+          {{- if $secretName }}
           envFrom:
             - secretRef:
-                name: {{ .Values.existingSecret }}
+                name: {{ $secretName }}
           {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
@@ -73,27 +94,27 @@ spec:
               mountPath: /app/logs
               subPath: logs
             {{- end }}
-            {{- if .Values.customConfig.configMapName }}
-            {{- if .Values.customConfig.mountConfigYaml }}
+            {{- if $configMapName }}
+            {{- if $mountConfigYaml }}
             - name: custom-config
               mountPath: /app/config.yaml
               subPath: config.yaml
               readOnly: true
             {{- end }}
-            {{- if .Values.customConfig.mountSuitabilityRules }}
+            {{- if $mountSuitabilityRules }}
             - name: custom-config
               mountPath: /app/suitability_rules.yaml
               subPath: suitability_rules.yaml
               readOnly: true
             {{- end }}
-            {{- if .Values.customConfig.mountSearchGroupFilters }}
+            {{- if $mountSearchGroupFilters }}
             - name: custom-config
               mountPath: /app/search_group_filters.yaml
               subPath: search_group_filters.yaml
               readOnly: true
             {{- end }}
             {{- end }}
-            {{- if .Values.customConfig.profilesConfigMapName }}
+            {{- if $profilesConfigMapName }}
             - name: custom-profiles
               mountPath: /app/competency_profiles
               readOnly: true
@@ -107,15 +128,15 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim | default (printf "%s-storage" (include "project-bot.fullname" .)) }}
         {{- end }}
-        {{- if .Values.customConfig.configMapName }}
+        {{- if $configMapName }}
         - name: custom-config
           configMap:
-            name: {{ .Values.customConfig.configMapName }}
+            name: {{ $configMapName }}
         {{- end }}
-        {{- if .Values.customConfig.profilesConfigMapName }}
+        {{- if $profilesConfigMapName }}
         - name: custom-profiles
           configMap:
-            name: {{ .Values.customConfig.profilesConfigMapName }}
+            name: {{ $profilesConfigMapName }}
         {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}

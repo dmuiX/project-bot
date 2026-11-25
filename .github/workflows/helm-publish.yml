@@ -51,15 +51,23 @@ jobs:
       - name: Validate rendered templates
         run: |
           helm template project-bot "${{ env.CHART_PATH }}" > /dev/null
+          # Existing ConfigMaps + Secret + HTTPRoute
           helm template project-bot "${{ env.CHART_PATH }}" \
             --set existingSecret=project-bot-secrets \
-            --set customConfig.configMapName=project-bot-config \
+            --set customConfig.existingConfigMap=project-bot-config \
             --set customConfig.mountSuitabilityRules=true \
             --set customConfig.mountSearchGroupFilters=true \
-            --set customConfig.profilesConfigMapName=project-bot-profiles \
+            --set customConfig.existingProfilesConfigMap=project-bot-profiles \
             --set httpRoute.enabled=true \
             --set 'httpRoute.parentRefs[0].name=main-gateway' \
             --set 'httpRoute.hostnames[0]=project-bot.example.local' > /dev/null
+          # Inline ConfigMaps + Secret
+          helm template project-bot "${{ env.CHART_PATH }}" \
+            --set 'secrets.OPENAI_API_KEY=dummy' \
+            --set 'customConfig.configYaml=llm: {}' \
+            --set 'customConfig.suitabilityRulesYaml=suitability: {}' \
+            --set 'customConfig.searchGroupFiltersYaml=search_group_filters: {}' \
+            --set 'customConfig.profiles.devops\.md=# DevOps' > /dev/null
 
       - name: Compute chart version and OCI target
         id: meta

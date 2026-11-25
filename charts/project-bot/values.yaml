@@ -39,20 +39,36 @@ env:
   LOG_ROTATION_WHEN: MIDNIGHT
   LOG_BACKUP_COUNT: "10"
 
-# Existing Secret containing API keys & credentials (OPENAI_API_KEY, ANTHROPIC_API_KEY,
-# GOOGLE_API_KEY, EMAIL_PASSWORD, FREELANCE_USERNAME, FREELANCE_PASSWORD, ...)
+# Credentials / API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY,
+# EMAIL_PASSWORD, FREELANCE_USERNAME, FREELANCE_PASSWORD, ...)
+# Recommended: reference an existing Secret (e.g. via ExternalSecrets / SOPS / SealedSecrets).
 existingSecret: ""
+# Optional: create a Secret directly from values (only used when existingSecret is empty).
+secrets: {}
+#  OPENAI_API_KEY: ""
+#  ANTHROPIC_API_KEY: ""
+#  GOOGLE_API_KEY: ""
+#  EMAIL_PASSWORD: ""
 
-# Mount custom local config, suitability rules, search group filters, and competency
-# profiles from existing ConfigMaps without committing personal data to Git.
+# Custom config, rules & competency profiles mounted into /app/ (read-only).
+# Provide content inline via a private values file OR reference existing ConfigMaps.
 customConfig:
-  # Existing ConfigMap containing config.yaml, suitability_rules.yaml, search_group_filters.yaml
-  configMapName: ""
+  # Option A: Inline YAML content (chart creates a ConfigMap + triggers Pod rollout on changes)
+  configYaml: ""
+  suitabilityRulesYaml: ""
+  searchGroupFiltersYaml: ""
+  # Map of filename -> Markdown content mounted at /app/competency_profiles/
+  profiles: {}
+  #  devops_k8s.md: |
+  #    # DevOps & Kubernetes Profile
+  #    ...
+
+  # Option B: Reference pre-existing ConfigMaps (used if inline fields above are empty)
+  existingConfigMap: ""
   mountConfigYaml: true
   mountSuitabilityRules: false
   mountSearchGroupFilters: false
-  # Existing ConfigMap containing *.md competency profiles mounted at /app/competency_profiles
-  profilesConfigMapName: ""
+  existingProfilesConfigMap: ""
 
 persistence:
   enabled: true
