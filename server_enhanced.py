@@ -30,6 +30,7 @@ from scheduler_manager import get_scheduler_manager
 
 # Import centralized logging
 from logging_config import setup_logging
+from oidc_auth import init_oidc
 
 # Configure logging
 setup_logging()
@@ -43,6 +44,9 @@ app = Flask(__name__)
 # authentication.  Only loopback origins are allowed until authentication is added.
 # TODO Phase 9: Add proper authentication (API key or session) before any public deployment.
 CORS(app, origins=["http://localhost:8002", "http://127.0.0.1:8002"])
+
+# Optional native OIDC authentication (activated via OIDC_ENABLED=true)
+init_oidc(app)
 
 # Disable caching globally
 @app.after_request

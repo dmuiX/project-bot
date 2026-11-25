@@ -42,6 +42,11 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
+    if (error.response?.status === 401 && error.response?.data?.login_url) {
+      const next = encodeURIComponent(window.location.pathname + window.location.search)
+      window.location.href = `${error.response.data.login_url}?next=${next}`
+      return Promise.reject(error)
+    }
     console.error('❌ API Error Details:')
     console.error('Status:', error.response?.status)
     console.error('Status Text:', error.response?.statusText)
