@@ -61,34 +61,30 @@ jobs:
             --set httpRoute.enabled=true \
             --set 'httpRoute.parentRefs[0].name=main-gateway' \
             --set 'httpRoute.hostnames[0]=project-bot.example.local' > /dev/null
-          # Inline ConfigMaps + Secret
+          # Inline ConfigMaps + Secret + digest-pinned image
           helm template project-bot "${{ env.CHART_PATH }}" \
+            --set 'image.digest=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' \
             --set 'secrets.OPENAI_API_KEY=dummy' \
             --set 'customConfig.configYaml=llm: {}' \
             --set 'customConfig.suitabilityRulesYaml=suitability: {}' \
             --set 'customConfig.searchGroupFiltersYaml=search_group_filters: {}' \
             --set 'customConfig.profiles.devops\.md=# DevOps' > /dev/null
 
-      - name: Compute chart version and OCI target
+      - name: Compute SemVer chart version and OCI target
         id: meta
         if: github.event_name != 'pull_request'
         run: |
           OWNER_LOWER="${GITHUB_REPOSITORY_OWNER,,}"
-          SHORT_SHA="${GITHUB_SHA:0:7}"
           BASE_VERSION=$(awk '/^version:/ {gsub(/"/, "", $2); print $2}' "${{ env.CHART_PATH }}/Chart.yaml")
 
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            TAG="${GITHUB_REF#refs/tags/v}"
-            CHART_VERSION="$TAG"
-            APP_VERSION="$TAG"
+            CHART_VERSION="${GITHUB_REF#refs/tags/v}"
           else
-            CHART_VERSION="${BASE_VERSION}-sha.${SHORT_SHA}"
-            APP_VERSION="sha-${SHORT_SHA}"
+            CHART_VERSION="${BASE_VERSION}"
           fi
 
           echo "owner_lower=${OWNER_LOWER}" >> "$GITHUB_OUTPUT"
           echo "chart_version=${CHART_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
           echo "oci_repo=oci://${{ env.REGISTRY }}/${OWNER_LOWER}/charts" >> "$GITHUB_OUTPUT"
 
       - name: Log into GHCR for Helm OCI
@@ -106,7 +102,6 @@ jobs:
           mkdir -p dist
           helm package "${{ env.CHART_PATH }}" \
             --version "${{ steps.meta.outputs.chart_version }}" \
-            --app-version "${{ steps.meta.outputs.app_version }}" \
             --destination dist
           helm push "dist/project-bot-${{ steps.meta.outputs.chart_version }}.tgz" \
             "${{ steps.meta.outputs.oci_repo }}"
@@ -118,8 +113,7 @@ jobs:
             echo "### Helm Chart OCI Publish"
             echo ""
             echo "- Chart: \`${{ steps.meta.outputs.oci_repo }}/project-bot\`"
-            echo "- Version: \`${{ steps.meta.outputs.chart_version }}\`"
-            echo "- AppVersion: \`${{ steps.meta.outputs.app_version }}\`"
+            echo "- SemVer Version: \`${{ steps.meta.outputs.chart_version }}\`"
             echo ""
             echo '```bash'
             echo "helm upgrade --install project-bot ${{ steps.meta.outputs.oci_repo }}/project-bot --version ${{ steps.meta.outputs.chart_version }} -n project-bot --create-namespace"

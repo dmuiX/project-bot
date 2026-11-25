@@ -64,10 +64,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
 
       - name: Build and load test image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -151,10 +148,7 @@ jobs:
           {
             echo "### Docker Image Publish"
             echo ""
-            echo "- Image: \`${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}\`"
+            echo "- Immutable reference (digest): \`${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }}\`"
             echo "- Digest: \`${{ steps.build-and-push.outputs.digest }}\`"
-            echo "- Tags:"
-            echo '```'
-            echo "${{ steps.meta.outputs.tags }}"
-            echo '```'
+            echo "- Tag: \`latest\`"
           } >> "$GITHUB_STEP_SUMMARY"

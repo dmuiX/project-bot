@@ -18,7 +18,11 @@ helm upgrade --install project-bot oci://ghcr.io/dmuix/charts/project-bot \
 ## Example `my-private-values.yaml` (keep outside public Git)
 
 ```yaml
-existingSecret: project-bot-secrets  # or use `secrets: { OPENAI_API_KEY: "..." }`
+image:
+  # Pin by immutable digest (takes precedence over tag)
+  digest: "sha256:0123456789abcdef..."
+
+existingSecret: project-bot-secrets  # e.g. synced via OpenBao / VSO VaultStaticSecret
 
 customConfig:
   configYaml: |
