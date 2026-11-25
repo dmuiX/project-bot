@@ -1,0 +1,105 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/dmuix/project-bot
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 8002
+
+env:
+  TZ: Europe/Berlin
+  FLASK_ENV: production
+  FLASK_HOST: "0.0.0.0"
+  FLASK_PORT: "8002"
+  LOG_LEVEL: INFO
+  LOG_FILE: /app/logs/app.log
+  LOG_ROTATION_WHEN: MIDNIGHT
+  LOG_BACKUP_COUNT: "10"
+
+# Existing Secret containing API keys & credentials (OPENAI_API_KEY, ANTHROPIC_API_KEY,
+# GOOGLE_API_KEY, EMAIL_PASSWORD, FREELANCE_USERNAME, FREELANCE_PASSWORD, ...)
+existingSecret: ""
+
+# Mount custom local config, suitability rules, search group filters, and competency
+# profiles from existing ConfigMaps without committing personal data to Git.
+customConfig:
+  # Existing ConfigMap containing config.yaml, suitability_rules.yaml, search_group_filters.yaml
+  configMapName: ""
+  mountConfigYaml: true
+  mountSuitabilityRules: false
+  mountSearchGroupFilters: false
+  # Existing ConfigMap containing *.md competency profiles mounted at /app/competency_profiles
+  profilesConfigMapName: ""
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 5Gi
+
+# Optional Gateway API HTTPRoute (includes explicit backendRefs defaults for ArgoCD SSA)
+httpRoute:
+  enabled: false
+  annotations: {}
+  parentRefs: []
+  #  - name: main-gateway
+  #    namespace: kube-system
+  hostnames: []
+  #  - project-bot.example.local
+  path: /
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+readinessProbe:
+  httpGet:
+    path: /api/v1/health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  timeoutSeconds: 5
+
+livenessProbe:
+  httpGet:
+    path: /api/v1/health
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 30
+  timeoutSeconds: 5
+
+extraVolumes: []
+extraVolumeMounts: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
