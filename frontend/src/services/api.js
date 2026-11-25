@@ -1,7 +1,8 @@
 import axios from 'axios'
 
-// Use environment variable with fallback for local development
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002'
+// Use environment variable with fallback for local development.
+// Nullish coalescing allows VITE_API_BASE_URL="" to use relative (same-origin) URLs.
+const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8002'
 
 // Create axios instance - if baseURL is empty, axios will use relative URLs
 const apiConfig = {
@@ -23,7 +24,7 @@ const api = axios.create(apiConfig)
 api.interceptors.request.use(
   (config) => {
     // Add any request preprocessing here
-    console.log('🚀 API Request:', config.method?.toUpperCase(), config.url, 'Full URL:', config.baseURL + config.url)
+    console.log('🚀 API Request:', config.method?.toUpperCase(), config.url, 'Full URL:', (config.baseURL || '') + config.url)
     console.log('📡 Request headers:', config.headers)
     return config
   },

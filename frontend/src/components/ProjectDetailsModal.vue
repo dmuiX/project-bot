@@ -193,7 +193,7 @@ import { useProjectsStore } from '../stores/projects'
 import axios from 'axios'
 import { formatPreEvalScore } from '../services/scoreLabel'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002'
+const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8002'
 
 // Props
 const props = defineProps({
