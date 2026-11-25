@@ -1,0 +1,155 @@
+{{- $hasInlineConfig := not (empty (or .Values.customConfig.configYaml .Values.customConfig.suitabilityRulesYaml .Values.customConfig.searchGroupFiltersYaml)) }}
+{{- $hasInlineProfiles := not (empty .Values.customConfig.profiles) }}
+{{- $hasInlineSecrets := not (empty .Values.secrets) }}
+{{- $configMapName := .Values.customConfig.existingConfigMap | default (ternary (printf "%s-config" (include "project-bot.fullname" .)) "" $hasInlineConfig) }}
+{{- $profilesConfigMapName := .Values.customConfig.existingProfilesConfigMap | default (ternary (printf "%s-profiles" (include "project-bot.fullname" .)) "" $hasInlineProfiles) }}
+{{- $secretName := .Values.existingSecret | default (ternary (printf "%s-secrets" (include "project-bot.fullname" .)) "" $hasInlineSecrets) }}
+{{- $mountConfigYaml := or (and (not .Values.customConfig.existingConfigMap) (not (empty .Values.customConfig.configYaml))) (and (not (empty .Values.customConfig.existingConfigMap)) .Values.customConfig.mountConfigYaml) }}
+{{- $mountSuitabilityRules := or (and (not .Values.customConfig.existingConfigMap) (not (empty .Values.customConfig.suitabilityRulesYaml))) (and (not (empty .Values.customConfig.existingConfigMap)) .Values.customConfig.mountSuitabilityRules) }}
+{{- $mountSearchGroupFilters := or (and (not .Values.customConfig.existingConfigMap) (not (empty .Values.customConfig.searchGroupFiltersYaml))) (and (not (empty .Values.customConfig.existingConfigMap)) .Values.customConfig.mountSearchGroupFilters) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "project-bot.fullname" . }}
+  labels:
+    {{- include "project-bot.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "project-bot.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- $hasAnnotations := or .Values.podAnnotations (and (not .Values.customConfig.existingConfigMap) $hasInlineConfig) (and (not .Values.customConfig.existingProfilesConfigMap) $hasInlineProfiles) (and (not .Values.existingSecret) $hasInlineSecrets) }}
+      {{- if $hasAnnotations }}
+      annotations:
+        {{- if and (not .Values.customConfig.existingConfigMap) $hasInlineConfig }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and (not .Values.customConfig.existingProfilesConfigMap) $hasInlineProfiles }}
+        checksum/profiles: {{ include (print $.Template.BasePath "/configmap-profiles.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and (not .Values.existingSecret) $hasInlineSecrets }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      labels:
+        {{- include "project-bot.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}{{- if .Values.image.digest }}@{{ .Values.image.digest }}{{- else }}:{{ .Values.image.tag | default .Chart.AppVersion }}{{- end }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8002
+              protocol: TCP
+          {{- with .Values.env }}
+          env:
+            {{- range $key, $val := . }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+          {{- end }}
+          {{- if $secretName }}
+          envFrom:
+            - secretRef:
+                name: {{ $secretName }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: storage
+              mountPath: /app/data
+              subPath: data
+            - name: storage
+              mountPath: /app/projects
+              subPath: projects
+            - name: storage
+              mountPath: /app/logs
+              subPath: logs
+            {{- end }}
+            {{- if $configMapName }}
+            {{- if $mountConfigYaml }}
+            - name: custom-config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            {{- end }}
+            {{- if $mountSuitabilityRules }}
+            - name: custom-config
+              mountPath: /app/suitability_rules.yaml
+              subPath: suitability_rules.yaml
+              readOnly: true
+            {{- end }}
+            {{- if $mountSearchGroupFilters }}
+            - name: custom-config
+              mountPath: /app/search_group_filters.yaml
+              subPath: search_group_filters.yaml
+              readOnly: true
+            {{- end }}
+            {{- end }}
+            {{- if $profilesConfigMapName }}
+            - name: custom-profiles
+              mountPath: /app/competency_profiles
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-storage" (include "project-bot.fullname" .)) }}
+        {{- end }}
+        {{- if $configMapName }}
+        - name: custom-config
+          configMap:
+            name: {{ $configMapName }}
+        {{- end }}
+        {{- if $profilesConfigMapName }}
+        - name: custom-profiles
+          configMap:
+            name: {{ $profilesConfigMapName }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

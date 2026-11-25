@@ -1,0 +1,8 @@
+Project Bot has been deployed!
+
+1. Port-forward locally to verify:
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "project-bot.fullname" . }} 8002:{{ .Values.service.port }}
+   Open http://localhost:8002
+
+2. Health check:
+   curl http://localhost:8002/api/v1/health

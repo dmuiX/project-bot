@@ -1,0 +1,21 @@
+{{- if and (not .Values.customConfig.existingConfigMap) (or .Values.customConfig.configYaml .Values.customConfig.suitabilityRulesYaml .Values.customConfig.searchGroupFiltersYaml) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "project-bot.fullname" . }}-config
+  labels:
+    {{- include "project-bot.labels" . | nindent 4 }}
+data:
+  {{- if .Values.customConfig.configYaml }}
+  config.yaml: |
+    {{- .Values.customConfig.configYaml | nindent 4 }}
+  {{- end }}
+  {{- if .Values.customConfig.suitabilityRulesYaml }}
+  suitability_rules.yaml: |
+    {{- .Values.customConfig.suitabilityRulesYaml | nindent 4 }}
+  {{- end }}
+  {{- if .Values.customConfig.searchGroupFiltersYaml }}
+  search_group_filters.yaml: |
+    {{- .Values.customConfig.searchGroupFiltersYaml | nindent 4 }}
+  {{- end }}
+{{- end }}

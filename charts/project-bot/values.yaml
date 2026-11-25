@@ -1,0 +1,123 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/dmuix/project-bot
+  pullPolicy: IfNotPresent
+  # Preferred: pin an immutable image digest (e.g. "sha256:...")
+  digest: ""
+  # Fallback tag used only when image.digest is empty
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 8002
+
+env:
+  TZ: Europe/Berlin
+  FLASK_ENV: production
+  FLASK_HOST: "0.0.0.0"
+  FLASK_PORT: "8002"
+  LOG_LEVEL: INFO
+  LOG_FILE: /app/logs/app.log
+  LOG_ROTATION_WHEN: MIDNIGHT
+  LOG_BACKUP_COUNT: "10"
+
+# Credentials / API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY,
+# EMAIL_PASSWORD, FREELANCE_USERNAME, FREELANCE_PASSWORD, ...)
+# Recommended: reference an existing Secret (e.g. via ExternalSecrets / SOPS / SealedSecrets).
+existingSecret: ""
+# Optional: create a Secret directly from values (only used when existingSecret is empty).
+secrets: {}
+#  OPENAI_API_KEY: ""
+#  ANTHROPIC_API_KEY: ""
+#  GOOGLE_API_KEY: ""
+#  EMAIL_PASSWORD: ""
+
+# Custom config, rules & competency profiles mounted into /app/ (read-only).
+# Provide content inline via a private values file OR reference existing ConfigMaps.
+customConfig:
+  # Option A: Inline YAML content (chart creates a ConfigMap + triggers Pod rollout on changes)
+  configYaml: ""
+  suitabilityRulesYaml: ""
+  searchGroupFiltersYaml: ""
+  # Map of filename -> Markdown content mounted at /app/competency_profiles/
+  profiles: {}
+  #  devops_k8s.md: |
+  #    # DevOps & Kubernetes Profile
+  #    ...
+
+  # Option B: Reference pre-existing ConfigMaps (used if inline fields above are empty)
+  existingConfigMap: ""
+  mountConfigYaml: true
+  mountSuitabilityRules: false
+  mountSearchGroupFilters: false
+  existingProfilesConfigMap: ""
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 5Gi
+
+# Optional Gateway API HTTPRoute (includes explicit backendRefs defaults for ArgoCD SSA)
+httpRoute:
+  enabled: false
+  annotations: {}
+  parentRefs: []
+  #  - name: main-gateway
+  #    namespace: kube-system
+  hostnames: []
+  #  - project-bot.example.local
+  path: /
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+readinessProbe:
+  httpGet:
+    path: /api/v1/health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  timeoutSeconds: 5
+
+livenessProbe:
+  httpGet:
+    path: /api/v1/health
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 30
+  timeoutSeconds: 5
+
+extraVolumes: []
+extraVolumeMounts: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

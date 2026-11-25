@@ -1,0 +1,13 @@
+{{- if and (not .Values.customConfig.existingProfilesConfigMap) .Values.customConfig.profiles }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "project-bot.fullname" . }}-profiles
+  labels:
+    {{- include "project-bot.labels" . | nindent 4 }}
+data:
+  {{- range $filename, $content := .Values.customConfig.profiles }}
+  {{ $filename }}: |
+    {{- $content | nindent 4 }}
+  {{- end }}
+{{- end }}
