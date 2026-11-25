@@ -62,6 +62,8 @@ docker compose up -d --build
 
 Das Dashboard ist anschließend unter `http://localhost:8002` erreichbar.
 
+> **Hinweis zu Dateirechten (Non-Root, UID/GID 1000):** Der Container läuft als Non-Root-User `appuser` (UID `1000`, GID `1000`). Auf Linux-Hosts sollten `data/`, `projects/` und `logs/` für UID `1000` beschreibbar sein (z. B. `chown -R 1000:1000 data projects logs`).
+
 ---
 
 ## Variante 2: Kubernetes (ConfigMaps, Secret & PVC)
@@ -123,9 +125,19 @@ spec:
       labels:
         app: project-bot
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
         - name: project-bot
           image: ghcr.io/<dein-user>/project-bot:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: http
               containerPort: 8002
