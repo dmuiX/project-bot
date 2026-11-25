@@ -10,6 +10,10 @@ COPY frontend/vite.config.js ./
 COPY frontend/index.html ./
 COPY frontend/.env ./
 COPY frontend/src/ ./src/
+# Build with empty VITE_API_BASE_URL by default so the SPA uses relative /api/v1/...
+# URLs (same-origin) in Docker/Kubernetes behind any port or reverse proxy.
+ARG VITE_API_BASE_URL=""
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN npm ci
 RUN npm run build
 
@@ -66,6 +70,10 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Create necessary directories
 RUN mkdir -p data projects logs
+
+# Bind on all interfaces inside the container so port forwarding / K8s Services work
+ENV FLASK_HOST=0.0.0.0
+ENV FLASK_PORT=8002
 
 # Expose port
 EXPOSE 8002

@@ -5,7 +5,7 @@ services:
     build: ..
     container_name: project-bot
     ports:
-      - "8003:8002"
+      - "8002:8002"
     environment:
       # Timezone configuration
       - TZ=Europe/Berlin
@@ -18,24 +18,26 @@ services:
       - FREELANCE_PASSWORD=${FREELANCE_PASSWORD}
       # Optional: Additional API keys if you use multiple Anthropic keys
       - ANTHROPIC_API_KEY2=${ANTHROPIC_API_KEY2:-$ANTHROPIC_API_KEY}
-      # Flask settings
+      # Flask settings (bind 0.0.0.0 inside container so host port mapping works)
       - FLASK_ENV=production
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=8002
       # Logging configuration
-      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - LOG_FILE=/app/logs/app.log
       - LOG_ROTATION_WHEN=MIDNIGHT
       - LOG_BACKUP_COUNT=10
-      # Frontend API configuration
-      - VITE_API_BASE_URL=http://project-bot:8002
     volumes:
-      # Mount organized docker-volumes directory for persistence
-      - ../docker-volumes/data:/app/data
-      - ../docker-volumes/projects:/app/projects
-      - ../docker-volumes/logs:/app/logs
+      # Persistent runtime data (aligned with docker/docker-setup.sh)
+      - ../data:/app/data
+      - ../projects:/app/projects
+      - ../logs:/app/logs
       # Mount config file from project root (ensure source file exists)
-      - ../docker-volumes/config.yaml:/app/config.yaml
-      # Optional: Mount additional directories if needed
-      - ../applications_status.json:/app/applications_status.json
+      - ../config.yaml:/app/config.yaml:ro
+      # Optional: Mount custom local profile & rule overrides without committing them to Git
+      # - ../local-profile/competency_profiles:/app/competency_profiles:ro
+      # - ../local-profile/suitability_rules.yaml:/app/suitability_rules.yaml:ro
+      # - ../local-profile/search_group_filters.yaml:/app/search_group_filters.yaml:ro
     restart: unless-stopped
     # Multi-architecture support - will use native architecture by default
-    # For multi-arch builds, use: docker buildx build --platform linux/amd64,linux/arm64   
+    # For multi-arch builds, use: docker buildx build --platform linux/amd64,linux/arm64

@@ -67,7 +67,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002'
+const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8002'
 
 export default {
   name: 'LLMCostSummary',
