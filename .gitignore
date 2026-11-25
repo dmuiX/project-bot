@@ -5,6 +5,7 @@ config.yaml
 # Personal Data Files
 data/cv.md
 CV_*.md
+local-profile/
 
 # Generated/Runtime Data Files
 applications_status.json

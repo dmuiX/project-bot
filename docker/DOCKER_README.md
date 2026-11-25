@@ -102,6 +102,9 @@ All important data is mounted to the host:
 - `./logs` → Application logs
 - `./config.yaml` → Configuration file
 
+### Custom Profiles & Kubernetes Deployment
+To keep personal competency profiles (`competency_profiles/`), suitability rules (`suitability_rules.yaml`), and search group filters (`search_group_filters.yaml`) outside of Git, mount them via Docker Compose bind mounts or Kubernetes `ConfigMap`s/`Secret`s/`PVC`s. See [docs/custom-profile-deployment.md](../docs/custom-profile-deployment.md) for step-by-step instructions and ready-to-use manifests.
+
 ## 🛠️ Development Commands
 
 ### Build Commands
