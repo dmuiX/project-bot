@@ -57,8 +57,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers for web scraping
-RUN playwright install chromium
+# Install Playwright browsers into a shared path readable by non-root user
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN playwright install chromium && chmod -R a+rX /ms-playwright
 
 # Copy application code, excluding config files that will be mounted
 COPY . .
@@ -68,12 +69,17 @@ RUN rm -rf /app/config.yaml
 # Copy built frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Create necessary directories
-RUN mkdir -p data projects logs
+# Create necessary directories and dedicated non-root user (UID/GID 1000)
+RUN groupadd -r -g 1000 appuser \
+    && useradd -r -u 1000 -g appuser -m -d /home/appuser appuser \
+    && mkdir -p data projects logs \
+    && chown -R appuser:appuser /app
 
 # Bind on all interfaces inside the container so port forwarding / K8s Services work
 ENV FLASK_HOST=0.0.0.0
 ENV FLASK_PORT=8002
+
+USER appuser
 
 # Expose port
 EXPOSE 8002
