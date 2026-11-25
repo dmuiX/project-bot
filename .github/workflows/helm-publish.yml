@@ -9,17 +9,11 @@ on:
     paths:
       - "charts/**"
       - ".github/workflows/helm-publish.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "charts/**"
-      - ".github/workflows/helm-publish.yml"
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -72,7 +66,6 @@ jobs:
 
       - name: Compute SemVer chart version and OCI target
         id: meta
-        if: github.event_name != 'pull_request'
         run: |
           OWNER_LOWER="${GITHUB_REPOSITORY_OWNER,,}"
           BASE_VERSION=$(awk '/^version:/ {gsub(/"/, "", $2); print $2}' "${{ env.CHART_PATH }}/Chart.yaml")
@@ -88,7 +81,6 @@ jobs:
           echo "oci_repo=oci://${{ env.REGISTRY }}/${OWNER_LOWER}/charts" >> "$GITHUB_OUTPUT"
 
       - name: Log into GHCR for Helm OCI
-        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -97,7 +89,6 @@ jobs:
             --password-stdin
 
       - name: Package and push OCI Helm chart
-        if: github.event_name != 'pull_request'
         run: |
           mkdir -p dist
           helm package "${{ env.CHART_PATH }}" \
@@ -107,7 +98,7 @@ jobs:
             "${{ steps.meta.outputs.oci_repo }}"
 
       - name: Job summary
-        if: always() && github.event_name != 'pull_request'
+        if: always()
         run: |
           {
             echo "### Helm Chart OCI Publish"
