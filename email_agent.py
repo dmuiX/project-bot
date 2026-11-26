@@ -173,12 +173,15 @@ class EmailAgent:
             Exception: If connection fails
         """
         try:
-            server = self.email_config.get('server')
-            port = self.email_config.get('port', 993)
-            username = self.email_config.get('username')
-            password = os.path.expandvars(self.email_config.get('password', ''))
+            server = os.path.expandvars(str(self.email_config.get('server', '') or ''))
+            raw_port = os.path.expandvars(str(self.email_config.get('port', 993) or 993))
+            port = int(raw_port) if raw_port.isdigit() else 993
+            username = os.path.expandvars(str(self.email_config.get('username', '') or ''))
+            password = os.path.expandvars(str(self.email_config.get('password', '') or ''))
 
-            if not all([server, username, password]):
+            if not all([server, username, password]) or any(
+                v.startswith('${') and v.endswith('}') for v in (server, username, password)
+            ):
                 raise ValueError("IMAP server, username, and password are required")
 
             mail = imaplib.IMAP4_SSL(server, port)
@@ -1793,7 +1796,9 @@ class EmailAgent:
 
             try:
                 mail = self.connect_imap()
-                source_folder = self.email_config.get('source_folder', 'INBOX')
+                source_folder = os.path.expandvars(
+                    str(self.email_config.get('source_folder', 'INBOX') or 'INBOX')
+                )
 
                 # Use EXAMINE (read-only) when configured
                 if self.email_config.get('examine_only', False):
