@@ -40,10 +40,9 @@ When deploying with ArgoCD multi-source (public `apps` repo + private `live` rep
 - **Private live repo (`values.yml`):** personal `customConfig` (`configYaml`, `suitabilityRulesYaml`, `searchGroupFiltersYaml`, `profiles`) and private `hostnames` / OIDC URLs.
 - **OpenBao / VSO (`VaultStaticSecret` → `project-bot-secrets`):** API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) and IMAP/provider credentials — never committed to Git.
 
-## Automated Digest PRs (`docker-publish.yml`)
+## Automated Chart Digest PR (`docker-publish.yml`)
 
-- **This repo (`charts/project-bot/values.yaml`):** uses `GITHUB_TOKEN` (enable *Settings → Actions → General → Allow GitHub Actions to create and approve pull requests*).
-- **External GitOps apps repo (optional):** set repository variable **`GITOPS_APPS_REPO`** (`<owner>/<gitops-apps-repo>`, optional **`GITOPS_APPS_FILE`** defaulting to `project-bot/app.yml`) and add a Fine-Grained PAT scoped to that repo (`Contents: Read and write` + `Pull requests: Read and write`) as repository secret **`APPS_REPO_TOKEN`**.
+- Every push to `main` automatically opens a PR updating `charts/project-bot/values.yaml` using `GITHUB_TOKEN` (enable *Settings → Actions → General → Allow GitHub Actions to create and approve pull requests*).
 
 ## Example `my-private-values.yaml` (keep outside public Git)
 

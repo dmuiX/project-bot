@@ -241,10 +241,8 @@ Project Bot ships a published OCI Helm chart (`oci://ghcr.io/dmuix/charts/projec
    - Pin `image.digest` (takes precedence over `image.tag`).
    - See [charts/project-bot/README.md](charts/project-bot/README.md) for full values documentation and GitOps examples.
 
-4. **Automated Digest Updates (GitHub Actions):**
-   Every push to `main` builds and signs `ghcr.io/dmuix/project-bot@sha256:...` via `.github/workflows/docker-publish.yml`:
-   - **Chart default digest (`charts/project-bot/values.yaml`):** opens a PR automatically using the built-in `GITHUB_TOKEN`. Ensure *Repository Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests* is enabled.
-   - **External GitOps apps repo (optional):** set the repository variable **`GITOPS_APPS_REPO`** (e.g. `<owner>/<gitops-apps-repo>`, plus optional **`GITOPS_APPS_FILE`**, default `project-bot/app.yml`) and add a Fine-Grained Personal Access Token scoped to that repository (**Contents: Read and write** and **Pull requests: Read and write**) as repository secret **`APPS_REPO_TOKEN`**. If unset, the cross-repo PR step is skipped cleanly.
+4. **Automated Chart Digest Updates (GitHub Actions):**
+   Every push to `main` builds and signs `ghcr.io/dmuix/project-bot@sha256:...` via `.github/workflows/docker-publish.yml` and automatically opens a PR updating `charts/project-bot/values.yaml` using the built-in `GITHUB_TOKEN`. Ensure *Repository Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests* is enabled.
 
 ### Environment Configuration
 
