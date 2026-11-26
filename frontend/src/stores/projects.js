@@ -6,7 +6,7 @@ export const useProjectsStore = defineStore('projects', {
     projects: [],
     filters: {
       search: '',
-      statuses: [],
+      statuses: ['accepted'],
       companies: [],
       providers: [],
       channels: [],
@@ -247,7 +247,7 @@ export const useProjectsStore = defineStore('projects', {
     resetFilters() {
       this.filters = {
         search: '',
-        statuses: [],
+        statuses: ['accepted'],
         companies: [],
         providers: [],
         channels: [],
