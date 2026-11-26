@@ -7,7 +7,22 @@ Deploys **Project Bot** on Kubernetes with:
 - Inline or pre-existing `Secret` for API keys & IMAP credentials
 - Optional Gateway API `HTTPRoute` (with explicit `backendRefs` defaults for ArgoCD SSA)
 
-## Install from GHCR (OCI)
+## 1. Create the Secrets first
+
+Project Bot reads API keys and credentials from environment variables via `existingSecret` (recommended) — never commit API keys to Git:
+
+```bash
+kubectl create namespace project-bot
+kubectl -n project-bot create secret generic project-bot-secrets \
+  --from-literal=OPENAI_API_KEY="sk-..." \
+  --from-literal=GOOGLE_API_KEY="..." \
+  --from-literal=ANTHROPIC_API_KEY="..." \
+  --from-literal=EMAIL_PASSWORD="..."
+```
+
+*(Only include the keys your `config.yaml` uses. For OpenBao/VSO GitOps setups, store the same keys in OpenBao KV at `kv/project-bot/secrets` and sync them into `Secret/project-bot-secrets` via `VaultStaticSecret`.)*
+
+## 2. Install from GHCR (OCI)
 
 ```bash
 helm upgrade --install project-bot oci://ghcr.io/dmuix/charts/project-bot \

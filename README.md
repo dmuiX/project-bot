@@ -214,7 +214,20 @@ For detailed architecture documentation including component diagrams, data flows
 
 Project Bot ships a published OCI Helm chart (`oci://ghcr.io/dmuix/charts/project-bot`) and a digest-pinned, non-root container image (`ghcr.io/dmuix/project-bot`).
 
-1. **Install from GHCR (OCI):**
+1. **Create the Kubernetes Secret for API keys / credentials** (never commit secrets to Git):
+   - **Standalone Kubernetes:**
+     ```bash
+     kubectl create namespace project-bot
+     kubectl -n project-bot create secret generic project-bot-secrets \
+       --from-literal=OPENAI_API_KEY="sk-..." \
+       --from-literal=GOOGLE_API_KEY="..." \
+       --from-literal=ANTHROPIC_API_KEY="..." \
+       --from-literal=EMAIL_PASSWORD="..."
+     ```
+     *(Only include the keys for the providers you actually enable in `config.yaml`.)*
+   - **GitOps with OpenBao / Vault Secrets Operator (VSO):** store those keys in OpenBao KV (e.g. `kv/project-bot/secrets`) and sync them into `Secret/project-bot-secrets` via a `VaultStaticSecret` in your cluster/apps repo.
+
+2. **Install from GHCR (OCI):**
    ```bash
    helm upgrade --install project-bot oci://ghcr.io/dmuix/charts/project-bot \
      --version 0.1.1 \
@@ -222,10 +235,11 @@ Project Bot ships a published OCI Helm chart (`oci://ghcr.io/dmuix/charts/projec
      -f my-private-values.yaml
    ```
 
-2. **Secrets & Private Config (GitOps-friendly):**
-   - **Secrets** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `EMAIL_PASSWORD`, etc.): keep them out of Git! Manage them in OpenBao / Vault / External Secrets and reference the synced Kubernetes Secret via `existingSecret: project-bot-secrets`.
-   - **Private config & profiles** (`customConfig.configYaml`, `customConfig.profiles`, private hostnames): keep in a private GitOps values file (e.g. `k3s-on-omv-live`) rather than a public repository.
-   - **Immutable image digests**: pin `image.digest` (takes precedence over `image.tag`). See [charts/project-bot/README.md](charts/project-bot/README.md) for full values documentation and ArgoCD multi-source GitOps examples.
+3. **Private config & immutable digests:**
+   - Reference the secret via `existingSecret: project-bot-secrets`.
+   - Keep personal `customConfig` (`configYaml`, `suitabilityRulesYaml`, `searchGroupFiltersYaml`, `profiles`) and private hostnames in a private values file (outside public Git).
+   - Pin `image.digest` (takes precedence over `image.tag`). The `Docker Publish` workflow automatically opens a PR to update `charts/project-bot/values.yaml` (and optionally `k3s-on-omv-apps/project-bot/app.yml` when the `APPS_REPO_TOKEN` repository secret is configured).
+   - See [charts/project-bot/README.md](charts/project-bot/README.md) for full values documentation and GitOps examples.
 
 ### Environment Configuration
 
