@@ -212,37 +212,41 @@ For detailed architecture documentation including component diagrams, data flows
 
 ### Option 3: Kubernetes / Helm Deployment
 
-Project Bot ships a published OCI Helm chart (`oci://ghcr.io/dmuix/charts/project-bot`) and a digest-pinned, non-root container image (`ghcr.io/dmuix/project-bot`).
+Project Bot ships a published OCI Helm chart (`oci://ghcr.io/dmuix/charts/project-bot`) and a digest-pinned, non-root container image (`ghcr.io/dmuix/project-bot`, served via Gunicorn WSGI `--workers 1 --threads 4`).
 
-1. **Create the Kubernetes Secret for API keys / credentials** (never commit secrets to Git):
+1. **Choose LLM mode vs. Local-Only mode:**
+   - **Local-only (no LLM API keys or `data/cv.md` required):** set `llm.enabled: false` in your Helm values. Project Bot runs RSS/IMAP scraping, local keyword & suitability scoring, dashboard persistence (`localStorage`, defaulting to `accepted`), and optional SMTP email notifications completely without AI API keys.
+   - **With LLM evaluation / application generation:** keep `llm.enabled: true` and provide `OPENAI_API_KEY` / `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` via `existingSecret`.
+
+2. **Create the Kubernetes Secret for credentials (optional, never commit secrets to Git):**
    - **Standalone Kubernetes:**
      ```bash
      kubectl create namespace project-bot
      kubectl -n project-bot create secret generic project-bot-secrets \
-       --from-literal=OPENAI_API_KEY="sk-..." \
-       --from-literal=GOOGLE_API_KEY="..." \
-       --from-literal=ANTHROPIC_API_KEY="..." \
-       --from-literal=EMAIL_PASSWORD="..."
+       --from-literal=EMAIL_SERVER="mail.example.com" \
+       --from-literal=EMAIL_USERNAME="you@example.com" \
+       --from-literal=EMAIL_PASSWORD="app-password"
      ```
-     *(Only include the keys for the providers you actually enable in `config.yaml`.)*
-   - **GitOps with OpenBao / Vault Secrets Operator (VSO):** store those keys in OpenBao KV (e.g. `kv/project-bot/secrets`) and sync them into `Secret/project-bot-secrets` via a `VaultStaticSecret` in your cluster/apps repo.
+     *(Add `OPENAI_API_KEY`, `GOOGLE_API_KEY`, or `ANTHROPIC_API_KEY` only if `llm.enabled: true`. `notify_accepted.py` sends bundled HTML project-card emails via SMTP STARTTLS port `587` / SSL `465` and automatically reuses `EMAIL_SERVER`, `EMAIL_USERNAME`, and `EMAIL_PASSWORD` unless `SMTP_HOST`/`NOTIFY_EMAIL_TO` are overridden.)*
+   - **GitOps with OpenBao / Vault Secrets Operator (VSO):** store those keys in OpenBao KV and sync them into `Secret/project-bot-secrets` via a `VaultStaticSecret` in your cluster GitOps repo.
 
-2. **Install from GHCR (OCI):**
+3. **Install from GHCR (OCI):**
    ```bash
    helm upgrade --install project-bot oci://ghcr.io/dmuix/charts/project-bot \
-     --version 0.1.1 \
+     --version <latest-chart-version> \
      --namespace project-bot --create-namespace \
      -f my-private-values.yaml
    ```
 
-3. **Private config & immutable digests:**
-   - Reference the secret via `existingSecret: project-bot-secrets`.
-   - Keep personal `customConfig` (`configYaml`, `suitabilityRulesYaml`, `searchGroupFiltersYaml`, `profiles`) and private hostnames in a private values file (outside public Git).
+4. **Private config, schedule seeding & immutable digests:**
+   - Reference the secret via `existingSecret: project-bot-secrets` (or leave empty `""` for RSS-only without secrets).
+   - Keep personal `customConfig` (`configYaml`, `schedulesJson`, `suitabilityRulesYaml`, `searchGroupFiltersYaml`, `profiles`) and private hostnames in a private values file (outside public Git). `customConfig.schedulesJson` seeds `/app/data/schedules.json` on a fresh PVC via a non-root `initContainer` without overwriting later UI edits.
    - Pin `image.digest` (takes precedence over `image.tag`).
    - See [charts/project-bot/README.md](charts/project-bot/README.md) for full values documentation and GitOps examples.
 
-4. **Automated Chart Digest Updates (GitHub Actions):**
-   Every push to `main` builds and signs `ghcr.io/dmuix/project-bot@sha256:...` via `.github/workflows/docker-publish.yml` and automatically opens a PR updating `charts/project-bot/values.yaml` using the built-in `GITHUB_TOKEN`. Ensure *Repository Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests* is enabled.
+5. **CI/CD & Automated Chart Releases (GitHub Actions):**
+   - On every push to `main`, `Python Tests` (`pytest`) runs first.
+   - Only after `Python Tests` succeeds does `.github/workflows/docker-publish.yml` build, scan (Trivy), sign (Cosign) `ghcr.io/dmuix/project-bot@sha256:...`, auto-increment the patch version in `charts/project-bot/Chart.yaml`, pin the new digest in `charts/project-bot/values.yaml`, and push the matching OCI Helm chart to GHCR (with `cancel-in-progress: true`).
 
 ### Environment Configuration
 
