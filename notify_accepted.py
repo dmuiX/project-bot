@@ -61,6 +61,27 @@ def save_notified_ids(ledger_path: Path, notified_ids: set[str]) -> None:
     ledger_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def _extract_snippet(filepath: str, max_len: int = 320) -> str:
+    if not filepath:
+        return ""
+    try:
+        text = Path(filepath).read_text(encoding="utf-8")
+    except Exception:
+        return ""
+    marker = "## Beschreibung"
+    idx = text.find(marker)
+    body = text[idx + len(marker):] if idx != -1 else text
+    # Stop before evaluation appendix if present
+    for stop in ("\n## ", "\n---"):
+        s_idx = body.find(stop)
+        if s_idx != -1:
+            body = body[:s_idx]
+    cleaned = " ".join(body.split())
+    if len(cleaned) > max_len:
+        return cleaned[: max_len - 1].rstrip() + "…"
+    return cleaned
+
+
 def collect_new_accepted(projects_dir: str, notified_ids: set[str]) -> List[Dict[str, Any]]:
     manager = ProjectStateManager(projects_dir)
     accepted = manager.get_projects_by_state("accepted")
@@ -82,6 +103,7 @@ def collect_new_accepted(projects_dir: str, notified_ids: set[str]) -> List[Dict
             "provider": meta.get("provider_name") or meta.get("provider_id") or "—",
             "url": meta.get("source_url") or "",
             "score": score,
+            "snippet": _extract_snippet(filepath),
         })
     items.sort(key=lambda x: (x["score"] is None, -(x["score"] or 0), x["title"]))
     return items
@@ -93,8 +115,9 @@ def build_project_email(
     recipients: List[str],
     dashboard_url: str = "",
 ) -> EmailMessage:
-    score_str = f"{item['score']}%" if item["score"] is not None else "—"
-    subject = f"[Project Bot] [{score_str}] {item['title']}"
+    score_val = item["score"]
+    score_str = f"{score_val}%" if score_val is not None else "—"
+    subject = f"[project-bot] {score_str} · {item['title']}"
 
     plain_lines = [
         f"Projekt: {item['title']}",
@@ -102,30 +125,69 @@ def build_project_email(
         f"Firma:   {item['company']}",
         f"Quelle:  {item['provider']}",
     ]
+    if item.get("snippet"):
+        plain_lines.append(f"\n{item['snippet']}")
     if item["url"]:
-        plain_lines.append(f"Link:    {item['url']}")
+        plain_lines.append(f"\nAusschreibung: {item['url']}")
     if dashboard_url:
-        plain_lines.append(f"\nDashboard: {dashboard_url}")
+        plain_lines.append(f"Dashboard:     {dashboard_url}")
 
     title_html = html.escape(item["title"])
-    link_html = (
-        f'<p><a href="{html.escape(item["url"], quote=True)}">Zur Ausschreibung →</a></p>'
-        if item["url"]
+    company_html = html.escape(item["company"])
+    provider_html = html.escape(item["provider"])
+    snippet_html = (
+        f"<p style='margin:16px 0 0;color:#475569;font-size:14px;line-height:1.55;'>"
+        f"{html.escape(item['snippet'])}</p>"
+        if item.get("snippet")
         else ""
     )
-    dash_html = (
-        f'<p><a href="{html.escape(dashboard_url, quote=True)}">Im Dashboard öffnen →</a></p>'
-        if dashboard_url
-        else ""
-    )
+
+    if score_val is not None and score_val >= 40:
+        badge_bg, badge_fg = "#dcfce7", "#166534"
+    elif score_val is not None and score_val >= 20:
+        badge_bg, badge_fg = "#dbeafe", "#1e40af"
+    else:
+        badge_bg, badge_fg = "#f1f5f9", "#334155"
+
+    cta_buttons = []
+    if item["url"]:
+        cta_buttons.append(
+            f"<a href='{html.escape(item['url'], quote=True)}' "
+            "style='display:inline-block;padding:10px 18px;background:#2563eb;color:#ffffff;"
+            "text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;margin-right:10px;'>"
+            "Ausschreibung öffnen →</a>"
+        )
+    if dashboard_url:
+        cta_buttons.append(
+            f"<a href='{html.escape(dashboard_url, quote=True)}' "
+            "style='display:inline-block;padding:10px 16px;background:#f1f5f9;color:#0f172a;"
+            "text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;'>"
+            "Dashboard</a>"
+        )
+    cta_block = f"<div style='margin-top:22px;'>{''.join(cta_buttons)}</div>" if cta_buttons else ""
+
     html_body = (
-        "<html><body style='font-family:sans-serif;font-size:14px;color:#222;'>"
-        f"<h3>[{html.escape(score_str)}] {title_html}</h3>"
-        f"<p><strong>Firma:</strong> {html.escape(item['company'])}<br>"
-        f"<strong>Quelle:</strong> {html.escape(item['provider'])}</p>"
-        f"{link_html}"
-        f"{dash_html}"
-        "</body></html>"
+        "<!DOCTYPE html><html><body style='margin:0;padding:24px;background:#f8fafc;"
+        "font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;'>"
+        "<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='max-width:620px;margin:0 auto;'>"
+        "<tr><td style='background:#0f172a;color:#f8fafc;padding:14px 22px;border-radius:12px 12px 0 0;'>"
+        "<table role='presentation' width='100%' cellspacing='0' cellpadding='0'><tr>"
+        "<td style='font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#94a3b8;'>project-bot</td>"
+        f"<td align='right'><span style='display:inline-block;padding:4px 10px;border-radius:999px;"
+        f"background:{badge_bg};color:{badge_fg};font-size:12px;font-weight:700;'>Match {html.escape(score_str)}</span></td>"
+        "</tr></table>"
+        "</td></tr>"
+        "<tr><td style='background:#ffffff;padding:24px 22px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;'>"
+        f"<h2 style='margin:0 0 14px;font-size:19px;line-height:1.35;color:#0f172a;'>{title_html}</h2>"
+        "<table role='presentation' cellspacing='0' cellpadding='0' style='width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;'>"
+        "<tr>"
+        f"<td style='padding:10px 14px;font-size:13px;color:#475569;'><strong style='color:#0f172a;'>Firma:</strong> {company_html}</td>"
+        f"<td style='padding:10px 14px;font-size:13px;color:#475569;'><strong style='color:#0f172a;'>Quelle:</strong> {provider_html}</td>"
+        "</tr></table>"
+        f"{snippet_html}"
+        f"{cta_block}"
+        "</td></tr>"
+        "</table></body></html>"
     )
 
     msg = EmailMessage()
