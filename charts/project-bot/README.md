@@ -15,6 +15,14 @@ helm upgrade --install project-bot oci://ghcr.io/dmuix/charts/project-bot \
   -f my-private-values.yaml
 ```
 
+## Public vs. Private Values (GitOps)
+
+When deploying with ArgoCD multi-source (public `apps` repo + private `live` repo + OpenBao/VSO):
+
+- **Public apps repo:** chart version, pinned `image.digest`, `existingSecret: project-bot-secrets`, `httpRoute.enabled: false` (when fronting with an OIDC proxy), and OIDC/RBAC wiring.
+- **Private live repo (`values.yml`):** personal `customConfig` (`configYaml`, `suitabilityRulesYaml`, `searchGroupFiltersYaml`, `profiles`) and private `hostnames` / OIDC URLs.
+- **OpenBao / VSO (`VaultStaticSecret` → `project-bot-secrets`):** API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) and IMAP/provider credentials — never committed to Git.
+
 ## Example `my-private-values.yaml` (keep outside public Git)
 
 ```yaml

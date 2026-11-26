@@ -210,6 +210,23 @@ For detailed architecture documentation including component diagrams, data flows
    - **Local Development Backend**: http://localhost:8002
    - **Local Development Frontend**: http://localhost:5173
 
+### Option 3: Kubernetes / Helm Deployment
+
+Project Bot ships a published OCI Helm chart (`oci://ghcr.io/dmuix/charts/project-bot`) and a digest-pinned, non-root container image (`ghcr.io/dmuix/project-bot`).
+
+1. **Install from GHCR (OCI):**
+   ```bash
+   helm upgrade --install project-bot oci://ghcr.io/dmuix/charts/project-bot \
+     --version 0.1.1 \
+     --namespace project-bot --create-namespace \
+     -f my-private-values.yaml
+   ```
+
+2. **Secrets & Private Config (GitOps-friendly):**
+   - **Secrets** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `EMAIL_PASSWORD`, etc.): keep them out of Git! Manage them in OpenBao / Vault / External Secrets and reference the synced Kubernetes Secret via `existingSecret: project-bot-secrets`.
+   - **Private config & profiles** (`customConfig.configYaml`, `customConfig.profiles`, private hostnames): keep in a private GitOps values file (e.g. `k3s-on-omv-live`) rather than a public repository.
+   - **Immutable image digests**: pin `image.digest` (takes precedence over `image.tag`). See [charts/project-bot/README.md](charts/project-bot/README.md) for full values documentation and ArgoCD multi-source GitOps examples.
+
 ### Environment Configuration
 
 The application supports two distinct environments to prevent configuration conflicts:
