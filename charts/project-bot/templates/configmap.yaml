@@ -1,4 +1,4 @@
-{{- if and (not .Values.customConfig.existingConfigMap) (or .Values.customConfig.configYaml .Values.customConfig.suitabilityRulesYaml .Values.customConfig.searchGroupFiltersYaml) }}
+{{- if and (not .Values.customConfig.existingConfigMap) (or .Values.customConfig.configYaml .Values.customConfig.suitabilityRulesYaml .Values.customConfig.searchGroupFiltersYaml .Values.customConfig.schedulesJson) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -17,5 +17,9 @@ data:
   {{- if .Values.customConfig.searchGroupFiltersYaml }}
   search_group_filters.yaml: |
     {{- .Values.customConfig.searchGroupFiltersYaml | nindent 4 }}
+  {{- end }}
+  {{- if .Values.customConfig.schedulesJson }}
+  schedules.json: |
+    {{- .Values.customConfig.schedulesJson | nindent 4 }}
   {{- end }}
 {{- end }}

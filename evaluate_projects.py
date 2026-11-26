@@ -659,24 +659,33 @@ Examples:
     logger.debug("✅ Configuration loaded successfully")
 
     # Add the pre_eval_only and force_evaluation flags to the config dictionary for easy access
-    config['pre_eval_only'] = args.pre_eval_only
+    llm_disabled = (
+        os.environ.get("LLM_ENABLED", "true").strip().lower() in ("0", "false", "no", "off")
+        or config.get("llm", {}).get("enabled") is False
+    )
+    config['pre_eval_only'] = args.pre_eval_only or llm_disabled
     config['force_evaluation'] = args.force_evaluation
-    if args.pre_eval_only:
+    if llm_disabled and not args.pre_eval_only:
+        logger.info("🔧 LLM disabled (LLM_ENABLED=false) — running in PRE-EVALUATION ONLY mode")
+        print("--- LLM disabled — running in PRE-EVALUATION ONLY mode ---")
+    elif args.pre_eval_only:
         logger.info("🔧 Running in PRE-EVALUATION ONLY mode")
         print("--- Running in PRE-EVALUATION ONLY mode ---")
     if args.force_evaluation:
         logger.info("🔧 Running in FORCE EVALUATION mode (skipping pre-evaluation)")
         print("--- Running in FORCE EVALUATION mode (skipping pre-evaluation) ---")
 
-
-    logger.debug("📖 Loading CV content...")
-    cv_content = parse_cv(args.cv)
-    if not cv_content:
-        logger.error("❌ Fatal: Could not load CV. Exiting.")
-        print("Fatal: Could not load CV. Exiting.")
-        return
-
-    logger.debug(f"✅ CV content loaded ({len(cv_content)} characters)")
+    if config['pre_eval_only']:
+        cv_content = ""
+        logger.debug("⏭️ Skipping CV loading in pre-evaluation-only / LLM-disabled mode")
+    else:
+        logger.debug("📖 Loading CV content...")
+        cv_content = parse_cv(args.cv)
+        if not cv_content:
+            logger.error("❌ Fatal: Could not load CV. Exiting.")
+            print("Fatal: Could not load CV. Exiting.")
+            return
+        logger.debug(f"✅ CV content loaded ({len(cv_content)} characters)")
 
     # --- Main Logic ---
     if args.project_file:
