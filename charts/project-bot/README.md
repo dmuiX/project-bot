@@ -38,6 +38,11 @@ When deploying with ArgoCD multi-source (public `apps` repo + private `live` rep
 - **Private live repo (`values.yml`):** personal `customConfig` (`configYaml`, `suitabilityRulesYaml`, `searchGroupFiltersYaml`, `profiles`) and private `hostnames` / OIDC URLs.
 - **OpenBao / VSO (`VaultStaticSecret` → `project-bot-secrets`):** API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) and IMAP/provider credentials — never committed to Git.
 
+## Automated Digest PRs (`docker-publish.yml`)
+
+- **This repo (`charts/project-bot/values.yaml`):** uses `GITHUB_TOKEN` (enable *Settings → Actions → General → Allow GitHub Actions to create and approve pull requests*).
+- **GitOps apps repo (`dmuiX/k3s-on-omv-apps`, `project-bot/app.yml`):** add a Fine-Grained PAT (scoped to `dmuiX/k3s-on-omv-apps` with `Contents: Read and write` + `Pull requests: Read and write`) as GitHub Actions repository secret **`APPS_REPO_TOKEN`**.
+
 ## Example `my-private-values.yaml` (keep outside public Git)
 
 ```yaml
