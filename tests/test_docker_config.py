@@ -43,8 +43,8 @@ class TestDockerfileContent:
         assert "EXPOSE 8002" in self.src, "Dockerfile EXPOSEd Port 8002 nicht"
 
     def test_runs_server_enhanced(self):
-        assert "server_enhanced.py" in self.src, (
-            "Dockerfile startet nicht server_enhanced.py als Einstiegspunkt"
+        assert "gunicorn" in self.src and "wsgi:app" in self.src, (
+            "Dockerfile startet nicht gunicorn mit wsgi:app als Einstiegspunkt"
         )
 
     def test_copies_requirements_txt(self):
