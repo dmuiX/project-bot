@@ -830,6 +830,15 @@ class LLMEvaluator:
         """
         now = datetime.now(timezone.utc).isoformat()
 
+        if os.environ.get("LLM_ENABLED", "true").strip().lower() in ("0", "false", "no", "off"):
+            logger.info("Projekt %s: LLM-Bewertung deaktiviert (LLM_ENABLED=false)", project_id)
+            return self._error_result(
+                project_id,
+                "llm_disabled",
+                "LLM-Bewertung ist deaktiviert (LLM_ENABLED=false).",
+                now,
+            )
+
         # ── 1. PII-Scrubbing ──────────────────────────────────────────────────
         scrub_result = self._scrubber.scrub(project_text)
 
