@@ -36,8 +36,8 @@ def test_read_score_prefers_positive_llm_otherwise_pre_eval(tmp_path):
     assert notify_accepted.read_score_from_file(str(p2)) == 88
 
 
-def test_build_project_email_subject_and_html():
-    item = {
+def test_build_digest_email_single_and_multi():
+    item1 = {
         "id": "p1",
         "title": "Kubernetes Platform Engineer",
         "company": "Acme GmbH",
@@ -46,20 +46,25 @@ def test_build_project_email_subject_and_html():
         "score": 41,
         "snippet": "Remote K8s & Terraform project.",
     }
-    msg = notify_accepted.build_project_email(
-        item,
+    msg1 = notify_accepted.build_digest_email(
+        [item1],
         sender="me@example.com",
         recipients=["me@example.com"],
         dashboard_url="https://bot.example.local",
     )
-    assert msg["Subject"] == "[project-bot] 41% · Kubernetes Platform Engineer"
-    assert msg["From"] == "me@example.com"
-    assert msg["To"] == "me@example.com"
-    html_part = msg.get_body(preferencelist=("html",)).get_content()
+    assert msg1["Subject"] == "[project-bot] 41% · Kubernetes Platform Engineer"
+    html_part = msg1.get_body(preferencelist=("html",)).get_content()
     assert "Match 41%" in html_part
     assert "Acme GmbH" in html_part
     assert "https://example.com/p1" in html_part
     assert "https://bot.example.local" in html_part
+
+    item2 = {**item1, "id": "p2", "title": "DevSecOps Engineer", "score": 35}
+    msg2 = notify_accepted.build_digest_email([item1, item2], sender="me@example.com", recipients=["me@example.com"])
+    assert msg2["Subject"] == "[project-bot] 2 neue passende Projekte"
+    html2 = msg2.get_body(preferencelist=("html",)).get_content()
+    assert "Kubernetes Platform Engineer" in html2
+    assert "DevSecOps Engineer" in html2
 
 
 def test_main_sends_once_using_email_server_fallback_and_deduplicates(tmp_path, monkeypatch):
