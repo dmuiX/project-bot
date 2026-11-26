@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "charts/**"
+      - "**.md"
   workflow_dispatch:
 
 concurrency:
@@ -21,7 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
+      contents: write
+      pull-requests: write
       packages: write
       id-token: write
       attestations: write
@@ -132,6 +136,101 @@ jobs:
         run: |
           IMAGE_URI="${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}@${DIGEST}"
           cosign sign --yes "$IMAGE_URI"
+
+      - name: Open digest update PR for Helm chart values
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          SHORT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 - charts/project-bot/values.yaml "$NEW_DIGEST" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          path = Path(sys.argv[1])
+          digest = sys.argv[2]
+          text = path.read_text()
+          updated, count = re.subn(
+              r'(digest:\s*["\']?)(?:sha256:[0-9a-f]{64})?(["\']?)',
+              rf'\g<1>{digest}\g<2>',
+              text,
+              count=1,
+          )
+          if count == 0:
+              raise SystemExit("No image.digest field found in " + str(path))
+          path.write_text(updated)
+          PY
+          if git diff --quiet charts/project-bot/values.yaml; then
+            echo "Chart values.yaml digest already up to date."
+            exit 0
+          fi
+          BRANCH="chore/chart-digest-${SHORT_SHA:0:7}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add charts/project-bot/values.yaml
+          git commit -m "chore(chart): update default image digest to ${NEW_DIGEST:0:19}"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH" \
+            --title "chore(chart): update default image digest to ${NEW_DIGEST:0:19}" \
+            --body "Automated digest bump for \`charts/project-bot/values.yaml\` from \`${SHORT_SHA}\`.\n\n- Digest: \`${NEW_DIGEST}\`"
+
+      - name: Open digest update PR in k3s-on-omv-apps
+        env:
+          GH_TOKEN: ${{ secrets.APPS_REPO_TOKEN }}
+          NEW_DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          SHORT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "APPS_REPO_TOKEN secret is not configured; skipping automated k3s-on-omv-apps digest PR."
+            exit 0
+          fi
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/dmuiX/k3s-on-omv-apps.git" apps-repo
+          cd apps-repo
+          TARGET="project-bot/app.yml"
+          if [ ! -f "$TARGET" ]; then
+            echo "$TARGET not found in k3s-on-omv-apps; skipping."
+            exit 0
+          fi
+          python3 - "$TARGET" "$NEW_DIGEST" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          path = Path(sys.argv[1])
+          digest = sys.argv[2]
+          text = path.read_text()
+          updated, count = re.subn(
+              r'(digest:\s*["\']?)sha256:[0-9a-f]{64}(["\']?)',
+              rf'\g<1>{digest}\g<2>',
+              text,
+              count=1,
+          )
+          if count == 0:
+              raise SystemExit("No digest field found in " + str(path))
+          path.write_text(updated)
+          PY
+          if git diff --quiet; then
+            echo "Digest already up to date."
+            exit 0
+          fi
+          BRANCH="chore/project-bot-digest-${SHORT_SHA:0:7}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add "$TARGET"
+          git commit -m "chore(project-bot): update image digest to ${NEW_DIGEST:0:19}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --repo dmuiX/k3s-on-omv-apps \
+            --head "$BRANCH" \
+            --title "chore(project-bot): update image digest to ${NEW_DIGEST:0:19}" \
+            --body "Automated digest bump from \`dmuiX/project-bot@${SHORT_SHA}\`.\n\n- Digest: \`${NEW_DIGEST}\`"
 
       - name: Job summary
         if: always()

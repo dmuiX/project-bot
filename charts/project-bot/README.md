@@ -7,13 +7,41 @@ Deploys **Project Bot** on Kubernetes with:
 - Inline or pre-existing `Secret` for API keys & IMAP credentials
 - Optional Gateway API `HTTPRoute` (with explicit `backendRefs` defaults for ArgoCD SSA)
 
-## Install from GHCR (OCI)
+## 1. Create the Secrets first
+
+Project Bot reads API keys and credentials from environment variables via `existingSecret` (recommended) — never commit API keys to Git:
+
+```bash
+kubectl create namespace project-bot
+kubectl -n project-bot create secret generic project-bot-secrets \
+  --from-literal=OPENAI_API_KEY="sk-..." \
+  --from-literal=GOOGLE_API_KEY="..." \
+  --from-literal=ANTHROPIC_API_KEY="..." \
+  --from-literal=EMAIL_PASSWORD="..."
+```
+
+*(Only include the keys your `config.yaml` uses. For OpenBao/VSO GitOps setups, store the same keys in OpenBao KV at `kv/project-bot/secrets` and sync them into `Secret/project-bot-secrets` via `VaultStaticSecret`.)*
+
+## 2. Install from GHCR (OCI)
 
 ```bash
 helm upgrade --install project-bot oci://ghcr.io/dmuix/charts/project-bot \
   --namespace project-bot --create-namespace \
   -f my-private-values.yaml
 ```
+
+## Public vs. Private Values (GitOps)
+
+When deploying with ArgoCD multi-source (public `apps` repo + private `live` repo + OpenBao/VSO):
+
+- **Public apps repo:** chart version, pinned `image.digest`, `existingSecret: project-bot-secrets`, `httpRoute.enabled: false` (when fronting with an OIDC proxy), and OIDC/RBAC wiring.
+- **Private live repo (`values.yml`):** personal `customConfig` (`configYaml`, `suitabilityRulesYaml`, `searchGroupFiltersYaml`, `profiles`) and private `hostnames` / OIDC URLs.
+- **OpenBao / VSO (`VaultStaticSecret` → `project-bot-secrets`):** API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) and IMAP/provider credentials — never committed to Git.
+
+## Automated Digest PRs (`docker-publish.yml`)
+
+- **This repo (`charts/project-bot/values.yaml`):** uses `GITHUB_TOKEN` (enable *Settings → Actions → General → Allow GitHub Actions to create and approve pull requests*).
+- **GitOps apps repo (`dmuiX/k3s-on-omv-apps`, `project-bot/app.yml`):** add a Fine-Grained PAT (scoped to `dmuiX/k3s-on-omv-apps` with `Contents: Read and write` + `Pull requests: Read and write`) as GitHub Actions repository secret **`APPS_REPO_TOKEN`**.
 
 ## Example `my-private-values.yaml` (keep outside public Git)
 

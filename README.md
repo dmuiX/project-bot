@@ -210,6 +210,42 @@ For detailed architecture documentation including component diagrams, data flows
    - **Local Development Backend**: http://localhost:8002
    - **Local Development Frontend**: http://localhost:5173
 
+### Option 3: Kubernetes / Helm Deployment
+
+Project Bot ships a published OCI Helm chart (`oci://ghcr.io/dmuix/charts/project-bot`) and a digest-pinned, non-root container image (`ghcr.io/dmuix/project-bot`).
+
+1. **Create the Kubernetes Secret for API keys / credentials** (never commit secrets to Git):
+   - **Standalone Kubernetes:**
+     ```bash
+     kubectl create namespace project-bot
+     kubectl -n project-bot create secret generic project-bot-secrets \
+       --from-literal=OPENAI_API_KEY="sk-..." \
+       --from-literal=GOOGLE_API_KEY="..." \
+       --from-literal=ANTHROPIC_API_KEY="..." \
+       --from-literal=EMAIL_PASSWORD="..."
+     ```
+     *(Only include the keys for the providers you actually enable in `config.yaml`.)*
+   - **GitOps with OpenBao / Vault Secrets Operator (VSO):** store those keys in OpenBao KV (e.g. `kv/project-bot/secrets`) and sync them into `Secret/project-bot-secrets` via a `VaultStaticSecret` in your cluster/apps repo.
+
+2. **Install from GHCR (OCI):**
+   ```bash
+   helm upgrade --install project-bot oci://ghcr.io/dmuix/charts/project-bot \
+     --version 0.1.1 \
+     --namespace project-bot --create-namespace \
+     -f my-private-values.yaml
+   ```
+
+3. **Private config & immutable digests:**
+   - Reference the secret via `existingSecret: project-bot-secrets`.
+   - Keep personal `customConfig` (`configYaml`, `suitabilityRulesYaml`, `searchGroupFiltersYaml`, `profiles`) and private hostnames in a private values file (outside public Git).
+   - Pin `image.digest` (takes precedence over `image.tag`).
+   - See [charts/project-bot/README.md](charts/project-bot/README.md) for full values documentation and GitOps examples.
+
+4. **Automated Digest Updates (GitHub Actions):**
+   Every push to `main` builds and signs `ghcr.io/dmuix/project-bot@sha256:...` via `.github/workflows/docker-publish.yml`:
+   - **Chart default digest (`charts/project-bot/values.yaml`):** opens a PR automatically using the built-in `GITHUB_TOKEN`. Ensure *Repository Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests* is enabled.
+   - **GitOps apps repo (`dmuiX/k3s-on-omv-apps`, `project-bot/app.yml`):** create a Fine-Grained Personal Access Token scoped to `dmuiX/k3s-on-omv-apps` with **Contents: Read and write** and **Pull requests: Read and write**, then save it in this repository under *Settings → Secrets and variables → Actions → New repository secret* as **`APPS_REPO_TOKEN`**. If unset, the cross-repo PR step is skipped cleanly.
+
 ### Environment Configuration
 
 The application supports two distinct environments to prevent configuration conflicts:
