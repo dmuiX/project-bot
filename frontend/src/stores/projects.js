@@ -1,29 +1,56 @@
 import { defineStore } from 'pinia'
 import api, { quickFiltersApi, projectsApi } from '../services/api'
 
+const FILTERS_STORAGE_KEY = 'project-bot-filters'
+
+const createDefaultFilters = () => ({
+  search: '',
+  statuses: ['accepted'],
+  companies: [],
+  providers: [],
+  channels: [],
+  date_from: null,
+  date_to: null,
+  pre_eval_score_min: null,
+  pre_eval_score_max: null,
+  llm_score_min: null,
+  llm_score_max: null,
+  // Phase 5: LLM-Filter
+  search_groups: [],
+  profile_ids: [],
+  priority_labels: [],
+  evaluation_statuses: [],
+  page: 1,
+  page_size: 300
+})
+
+const loadSavedFilters = () => {
+  const defaults = createDefaultFilters()
+  try {
+    const raw = window.localStorage.getItem(FILTERS_STORAGE_KEY)
+    if (!raw) return defaults
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object') {
+      return { ...defaults, ...parsed, page: 1 }
+    }
+  } catch (e) {
+    console.warn('Could not load saved filters:', e)
+  }
+  return defaults
+}
+
+const persistFilters = (filters) => {
+  try {
+    window.localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters))
+  } catch (e) {
+    console.warn('Could not persist filters:', e)
+  }
+}
+
 export const useProjectsStore = defineStore('projects', {
   state: () => ({
     projects: [],
-    filters: {
-      search: '',
-      statuses: ['accepted'],
-      companies: [],
-      providers: [],
-      channels: [],
-      date_from: null,
-      date_to: null,
-      pre_eval_score_min: null,
-      pre_eval_score_max: null,
-      llm_score_min: null,
-      llm_score_max: null,
-      // Phase 5: LLM-Filter
-      search_groups: [],
-      profile_ids: [],
-      priority_labels: [],
-      evaluation_statuses: [],
-      page: 1,
-      page_size: 300
-    },
+    filters: loadSavedFilters(),
     pagination: {
       total: 0,
       page: 1,
@@ -238,6 +265,7 @@ export const useProjectsStore = defineStore('projects', {
 
     setFilters(filters) {
       this.filters = { ...this.filters, ...filters }
+      persistFilters(this.filters)
     },
 
     setPage(page) {
@@ -245,26 +273,8 @@ export const useProjectsStore = defineStore('projects', {
     },
 
     resetFilters() {
-      this.filters = {
-        search: '',
-        statuses: ['accepted'],
-        companies: [],
-        providers: [],
-        channels: [],
-        date_from: null,
-        date_to: null,
-        pre_eval_score_min: null,
-        pre_eval_score_max: null,
-        llm_score_min: null,
-        llm_score_max: null,
-        // Phase 5: LLM-Filter
-        search_groups: [],
-        profile_ids: [],
-        priority_labels: [],
-        evaluation_statuses: [],
-        page: 1,
-        page_size: 300
-      }
+      this.filters = createDefaultFilters()
+      persistFilters(this.filters)
     },
 
     clearError() {
