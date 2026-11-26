@@ -1046,6 +1046,7 @@ class EmailAgent:
                     'link': entry.get('link', ''),
                     'published': entry.get('published_parsed'),
                     'summary': entry.get('summary', ''),
+                    'company': (entry.get('company') or '').strip(),
                     'id': entry.get('id', entry.get('link', ''))
                 }
                 entries.append(entry_data)
@@ -1161,6 +1162,8 @@ class EmailAgent:
                         schema = parse_result['schema']
                     else:
                         schema = parse_result
+                    if isinstance(schema, dict) and not schema.get('company') and entry.get('company'):
+                        schema['company'] = entry['company']
 
                     provider_meta = {
                         'provider_id': provider_config['provider_id'],
@@ -1308,6 +1311,8 @@ class EmailAgent:
                         schema = parse_result['schema']
                     else:
                         schema = parse_result
+                    if isinstance(schema, dict) and not schema.get('company') and entry.get('company'):
+                        schema['company'] = entry['company']
 
                     provider_meta = {
                         'provider_id': provider_config['provider_id'],
