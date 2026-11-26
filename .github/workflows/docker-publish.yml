@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
+      contents: write
       packages: write
       id-token: write
       attestations: write
@@ -136,13 +137,76 @@ jobs:
           IMAGE_URI="${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}@${DIGEST}"
           cosign sign --yes "$IMAGE_URI"
 
+      - name: Set up Helm
+        uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+
+      - name: Bump Helm chart version, pin digest, and push OCI chart
+        id: chart-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_DIGEST: ${{ steps.build-and-push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          NEW_VERSION=$(python3 - charts/project-bot/Chart.yaml charts/project-bot/values.yaml "$NEW_DIGEST" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          chart_path = Path(sys.argv[1])
+          values_path = Path(sys.argv[2])
+          digest = sys.argv[3]
+
+          chart_text = chart_path.read_text()
+          m = re.search(r'^version:\s*["\']?(\d+)\.(\d+)\.(\d+)["\']?\s*$', chart_text, re.M)
+          if not m:
+              raise SystemExit("Could not parse SemVer version in Chart.yaml")
+          new_ver = f"{m.group(1)}.{m.group(2)}.{int(m.group(3)) + 1}"
+          chart_updated = re.sub(
+              r'^version:\s*["\']?\d+\.\d+\.\d+["\']?\s*$',
+              f"version: {new_ver}",
+              chart_text,
+              count=1,
+              flags=re.M,
+          )
+          chart_path.write_text(chart_updated)
+
+          values_text = values_path.read_text()
+          values_updated, count = re.subn(
+              r'(digest:\s*["\']?)(?:sha256:[0-9a-f]{64})?(["\']?)',
+              rf'\g<1>{digest}\g<2>',
+              values_text,
+              count=1,
+          )
+          if count == 0:
+              raise SystemExit("No image.digest found in values.yaml")
+          values_path.write_text(values_updated)
+          print(new_ver)
+          PY
+          )
+          echo "chart_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+
+          helm lint charts/project-bot
+          OWNER_LOWER="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "$GH_TOKEN" | helm registry login "${{ env.REGISTRY }}" \
+            --username "${{ github.actor }}" \
+            --password-stdin
+          mkdir -p dist
+          helm package charts/project-bot --version "$NEW_VERSION" --destination dist
+          helm push "dist/project-bot-${NEW_VERSION}.tgz" "oci://${{ env.REGISTRY }}/${OWNER_LOWER}/charts"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add charts/project-bot/Chart.yaml charts/project-bot/values.yaml
+          git commit -m "chore(chart): release ${NEW_VERSION} with image ${NEW_DIGEST:0:19}"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+
       - name: Job summary
         if: always()
         run: |
           {
-            echo "### Docker Image Publish"
+            echo "### Docker & Helm Chart Publish"
             echo ""
             echo "- Immutable reference (digest): \`${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }}\`"
             echo "- Digest: \`${{ steps.build-and-push.outputs.digest }}\`"
-            echo "- Tag: \`latest\`"
+            echo "- Helm Chart: \`oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/project-bot:${{ steps.chart-release.outputs.chart_version }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
