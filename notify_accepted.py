@@ -107,7 +107,7 @@ def collect_new_accepted(projects_dir: str, notified_ids: set[str]) -> List[Dict
         project_id = Path(filepath).stem if filepath else proj.get("id", "")
         if not project_id or project_id in notified_ids:
             continue
-        meta = proj.get("metadata") or {}
+        meta = proj.get("metadata") or proj
         score = read_score_from_file(filepath)
         company = meta.get("company")
         if company in (None, "", "None"):
