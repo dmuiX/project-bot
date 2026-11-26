@@ -25,19 +25,35 @@ import json
 import logging
 import os
 from pathlib import Path
+import re
 import smtplib
 import ssl
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from logging_config import setup_logging
-from scores import read_pre_eval_score_from_file
 from state_manager import ProjectStateManager
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 DEFAULT_LEDGER = Path("data/notified_projects.json")
+
+
+def read_score_from_file(filepath: str) -> Optional[int]:
+    if not filepath:
+        return None
+    try:
+        content = Path(filepath).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    llm_match = re.search(r"\*\*LLM Score:\*\*\s*(\d+)%", content)
+    if llm_match and int(llm_match.group(1)) > 0:
+        return int(llm_match.group(1))
+    pre_match = re.search(r"\*\*Pre-Evaluation Score:\*\*\s*(-?\d+)%", content)
+    if pre_match:
+        return int(pre_match.group(1))
+    return None
 
 
 def load_notified_ids(ledger_path: Path) -> set[str]:
@@ -92,7 +108,7 @@ def collect_new_accepted(projects_dir: str, notified_ids: set[str]) -> List[Dict
         if not project_id or project_id in notified_ids:
             continue
         meta = proj.get("metadata") or {}
-        score = read_pre_eval_score_from_file(filepath) if filepath else None
+        score = read_score_from_file(filepath)
         company = meta.get("company")
         if company in (None, "", "None"):
             company = "—"
