@@ -358,7 +358,7 @@ const projectsStore = useProjectsStore()
 // Local state
 const localFilters = ref({
   search: '',
-  statuses: [],
+  statuses: ['accepted'],
   companies: [],
   providers: [],
   channels: [],
@@ -427,7 +427,7 @@ const applyFilters = () => {
 const resetFilters = () => {
   localFilters.value = {
     search: '',
-    statuses: [],
+    statuses: ['accepted'],
     companies: [],
     providers: [],
     channels: [],
