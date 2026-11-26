@@ -91,5 +91,5 @@ EXPOSE 8002
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8002/api/v1/health || exit 1
 
-# Run the Flask application
-CMD ["python", "server_enhanced.py"]
+# Run the Flask application via Gunicorn (1 worker so APScheduler runs once, 4 threads for concurrency)
+CMD ["gunicorn", "--workers", "1", "--threads", "4", "--bind", "0.0.0.0:8002", "--timeout", "120", "wsgi:app"]

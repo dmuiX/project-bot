@@ -65,6 +65,9 @@ customConfig:
   configYaml: ""
   suitabilityRulesYaml: ""
   searchGroupFiltersYaml: ""
+  # Optional initial schedules.json seeded into /app/data/schedules.json on first boot
+  # (only written if the file does not already exist on the PVC so UI edits are preserved).
+  schedulesJson: ""
   # Map of filename -> Markdown content mounted at /app/competency_profiles/
   profiles: {}
   #  devops_k8s.md: |
