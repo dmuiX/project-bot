@@ -41,7 +41,7 @@ When deploying with ArgoCD multi-source (public `apps` repo + private `live` rep
 ## Automated Digest PRs (`docker-publish.yml`)
 
 - **This repo (`charts/project-bot/values.yaml`):** uses `GITHUB_TOKEN` (enable *Settings → Actions → General → Allow GitHub Actions to create and approve pull requests*).
-- **GitOps apps repo (`dmuiX/k3s-on-omv-apps`, `project-bot/app.yml`):** add a Fine-Grained PAT (scoped to `dmuiX/k3s-on-omv-apps` with `Contents: Read and write` + `Pull requests: Read and write`) as GitHub Actions repository secret **`APPS_REPO_TOKEN`**.
+- **External GitOps apps repo (optional):** set repository variable **`GITOPS_APPS_REPO`** (`<owner>/<gitops-apps-repo>`, optional **`GITOPS_APPS_FILE`** defaulting to `project-bot/app.yml`) and add a Fine-Grained PAT scoped to that repo (`Contents: Read and write` + `Pull requests: Read and write`) as repository secret **`APPS_REPO_TOKEN`**.
 
 ## Example `my-private-values.yaml` (keep outside public Git)
 

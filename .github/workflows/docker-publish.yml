@@ -179,22 +179,24 @@ jobs:
             --title "chore(chart): update default image digest to ${NEW_DIGEST:0:19}" \
             --body "Automated digest bump for \`charts/project-bot/values.yaml\` from \`${SHORT_SHA}\`.\n\n- Digest: \`${NEW_DIGEST}\`"
 
-      - name: Open digest update PR in k3s-on-omv-apps
+      - name: Open digest update PR in GitOps apps repo
         env:
           GH_TOKEN: ${{ secrets.APPS_REPO_TOKEN }}
+          APPS_REPO: ${{ vars.GITOPS_APPS_REPO }}
+          APPS_FILE: ${{ vars.GITOPS_APPS_FILE || 'project-bot/app.yml' }}
           NEW_DIGEST: ${{ steps.build-and-push.outputs.digest }}
           SHORT_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "APPS_REPO_TOKEN secret is not configured; skipping automated k3s-on-omv-apps digest PR."
+          if [ -z "${GH_TOKEN:-}" ] || [ -z "${APPS_REPO:-}" ]; then
+            echo "APPS_REPO_TOKEN secret or GITOPS_APPS_REPO variable is not configured; skipping automated GitOps digest PR."
             exit 0
           fi
-          git clone "https://x-access-token:${GH_TOKEN}@github.com/dmuiX/k3s-on-omv-apps.git" apps-repo
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${APPS_REPO}.git" apps-repo
           cd apps-repo
-          TARGET="project-bot/app.yml"
+          TARGET="${APPS_FILE}"
           if [ ! -f "$TARGET" ]; then
-            echo "$TARGET not found in k3s-on-omv-apps; skipping."
+            echo "$TARGET not found in ${APPS_REPO}; skipping."
             exit 0
           fi
           python3 - "$TARGET" "$NEW_DIGEST" <<'PY'
@@ -227,10 +229,10 @@ jobs:
           git commit -m "chore(project-bot): update image digest to ${NEW_DIGEST:0:19}"
           git push origin "$BRANCH"
           gh pr create \
-            --repo dmuiX/k3s-on-omv-apps \
+            --repo "$APPS_REPO" \
             --head "$BRANCH" \
             --title "chore(project-bot): update image digest to ${NEW_DIGEST:0:19}" \
-            --body "Automated digest bump from \`dmuiX/project-bot@${SHORT_SHA}\`.\n\n- Digest: \`${NEW_DIGEST}\`"
+            --body "Automated digest bump from \`${GITHUB_REPOSITORY}@${SHORT_SHA}\`.\n\n- Digest: \`${NEW_DIGEST}\`"
 
       - name: Job summary
         if: always()
