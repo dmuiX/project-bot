@@ -249,7 +249,7 @@ def main() -> int:
         print("ℹ️  No new accepted projects to notify.")
         return 0
 
-    host = os.environ.get("SMTP_HOST", "").strip()
+    host = (os.environ.get("SMTP_HOST") or os.environ.get("EMAIL_SERVER") or "").strip()
     raw_port = os.environ.get("SMTP_PORT", "587").strip()
     port = int(raw_port) if raw_port.isdigit() else 587
     username = (os.environ.get("SMTP_USERNAME") or os.environ.get("EMAIL_USERNAME") or "").strip()
