@@ -244,7 +244,7 @@ Project Bot ships a published OCI Helm chart (`oci://ghcr.io/dmuix/charts/projec
 4. **Automated Digest Updates (GitHub Actions):**
    Every push to `main` builds and signs `ghcr.io/dmuix/project-bot@sha256:...` via `.github/workflows/docker-publish.yml`:
    - **Chart default digest (`charts/project-bot/values.yaml`):** opens a PR automatically using the built-in `GITHUB_TOKEN`. Ensure *Repository Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests* is enabled.
-   - **GitOps apps repo (`dmuiX/k3s-on-omv-apps`, `project-bot/app.yml`):** create a Fine-Grained Personal Access Token scoped to `dmuiX/k3s-on-omv-apps` with **Contents: Read and write** and **Pull requests: Read and write**, then save it in this repository under *Settings → Secrets and variables → Actions → New repository secret* as **`APPS_REPO_TOKEN`**. If unset, the cross-repo PR step is skipped cleanly.
+   - **External GitOps apps repo (optional):** set the repository variable **`GITOPS_APPS_REPO`** (e.g. `<owner>/<gitops-apps-repo>`, plus optional **`GITOPS_APPS_FILE`**, default `project-bot/app.yml`) and add a Fine-Grained Personal Access Token scoped to that repository (**Contents: Read and write** and **Pull requests: Read and write**) as repository secret **`APPS_REPO_TOKEN`**. If unset, the cross-repo PR step is skipped cleanly.
 
 ### Environment Configuration
 
