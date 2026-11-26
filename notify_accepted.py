@@ -87,57 +87,44 @@ def collect_new_accepted(projects_dir: str, notified_ids: set[str]) -> List[Dict
     return items
 
 
-def build_email(
-    items: List[Dict[str, Any]],
+def build_project_email(
+    item: Dict[str, Any],
     sender: str,
     recipients: List[str],
     dashboard_url: str = "",
 ) -> EmailMessage:
-    count = len(items)
-    subject = f"[Project Bot] {count} {'neues passendes Projekt' if count == 1 else 'neue passende Projekte'}"
+    score_str = f"{item['score']}%" if item["score"] is not None else "—"
+    subject = f"[Project Bot] [{score_str}] {item['title']}"
 
-    plain_lines = [f"{count} neue passende Projekte gefunden:\n"]
-    html_rows = []
-    for item in items:
-        score_str = f"{item['score']}%" if item["score"] is not None else "—"
-        plain_lines.append(
-            f"- [{score_str}] {item['title']}\n"
-            f"  Firma: {item['company']} | Quelle: {item['provider']}\n"
-            f"  Link: {item['url']}\n"
-        )
-        title_html = html.escape(item["title"])
-        if item["url"]:
-            title_cell = f'<a href="{html.escape(item["url"], quote=True)}">{title_html}</a>'
-        else:
-            title_cell = title_html
-        html_rows.append(
-            f"<tr>"
-            f"<td style='padding:6px 10px;font-weight:bold;white-space:nowrap;'>{html.escape(score_str)}</td>"
-            f"<td style='padding:6px 10px;'>{title_cell}</td>"
-            f"<td style='padding:6px 10px;'>{html.escape(item['company'])}</td>"
-            f"<td style='padding:6px 10px;'>{html.escape(item['provider'])}</td>"
-            f"</tr>"
-        )
-
+    plain_lines = [
+        f"Projekt: {item['title']}",
+        f"Score:   {score_str}",
+        f"Firma:   {item['company']}",
+        f"Quelle:  {item['provider']}",
+    ]
+    if item["url"]:
+        plain_lines.append(f"Link:    {item['url']}")
     if dashboard_url:
         plain_lines.append(f"\nDashboard: {dashboard_url}")
-        footer_html = f'<p style="margin-top:16px;"><a href="{html.escape(dashboard_url, quote=True)}">Im Dashboard öffnen →</a></p>'
-    else:
-        footer_html = ""
 
+    title_html = html.escape(item["title"])
+    link_html = (
+        f'<p><a href="{html.escape(item["url"], quote=True)}">Zur Ausschreibung →</a></p>'
+        if item["url"]
+        else ""
+    )
+    dash_html = (
+        f'<p><a href="{html.escape(dashboard_url, quote=True)}">Im Dashboard öffnen →</a></p>'
+        if dashboard_url
+        else ""
+    )
     html_body = (
         "<html><body style='font-family:sans-serif;font-size:14px;color:#222;'>"
-        f"<h3>{html.escape(subject)}</h3>"
-        "<table border='1' cellspacing='0' cellpadding='0' style='border-collapse:collapse;border-color:#ddd;'>"
-        "<thead><tr style='background:#f4f4f4;'>"
-        "<th style='padding:6px 10px;text-align:left;'>Score</th>"
-        "<th style='padding:6px 10px;text-align:left;'>Projekt</th>"
-        "<th style='padding:6px 10px;text-align:left;'>Firma</th>"
-        "<th style='padding:6px 10px;text-align:left;'>Quelle</th>"
-        "</tr></thead>"
-        f"<tbody>{''.join(html_rows)}</tbody>"
-        "</table>"
-        f"{footer_html}"
+        f"<h3>[{html.escape(score_str)}] {title_html}</h3>"
+        f"<p><strong>Firma:</strong> {html.escape(item['company'])}<br>"
+        f"<strong>Quelle:</strong> {html.escape(item['provider'])}</p>"
+        f"{link_html}"
+        f"{dash_html}"
         "</body></html>"
     )
 
@@ -150,21 +137,39 @@ def build_email(
     return msg
 
 
-def send_smtp(msg: EmailMessage, host: str, port: int, username: str, password: str) -> None:
+def send_individual_emails(
+    items: List[Dict[str, Any]],
+    host: str,
+    port: int,
+    username: str,
+    password: str,
+    sender: str,
+    recipients: List[str],
+    dashboard_url: str,
+    notified_ids: set[str],
+    ledger_path: Path,
+) -> int:
     context = ssl.create_default_context()
+    sent = 0
     if port == 465:
-        with smtplib.SMTP_SSL(host, port, timeout=30, context=context) as server:
-            if username and password:
-                server.login(username, password)
-            server.send_message(msg)
+        conn_cm = smtplib.SMTP_SSL(host, port, timeout=30, context=context)
     else:
-        with smtplib.SMTP(host, port, timeout=30) as server:
+        conn_cm = smtplib.SMTP(host, port, timeout=30)
+
+    with conn_cm as server:
+        if port != 465:
             server.ehlo()
             server.starttls(context=context)
             server.ehlo()
-            if username and password:
-                server.login(username, password)
+        if username and password:
+            server.login(username, password)
+        for item in items:
+            msg = build_project_email(item, sender=sender, recipients=recipients, dashboard_url=dashboard_url)
             server.send_message(msg)
+            notified_ids.add(item["id"])
+            save_notified_ids(ledger_path, notified_ids)
+            sent += 1
+    return sent
 
 
 def main() -> int:
@@ -203,12 +208,19 @@ def main() -> int:
         print("⏭️  Skipping email notification (SMTP_HOST / NOTIFY_EMAIL_TO not configured).")
         return 0
 
-    msg = build_email(items, sender=sender, recipients=recipients, dashboard_url=dashboard_url)
-    send_smtp(msg, host=host, port=port, username=username, password=password)
-
-    notified_ids.update(item["id"] for item in items)
-    save_notified_ids(ledger_path, notified_ids)
-    print(f"✅ Sent email notification for {len(items)} accepted project(s) to {', '.join(recipients)}.")
+    sent = send_individual_emails(
+        items=items,
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+        sender=sender,
+        recipients=recipients,
+        dashboard_url=dashboard_url,
+        notified_ids=notified_ids,
+        ledger_path=ledger_path,
+    )
+    print(f"✅ Sent {sent} individual email notification(s) to {', '.join(recipients)}.")
     return 0
 
 
