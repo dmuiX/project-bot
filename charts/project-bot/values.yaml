@@ -4,7 +4,7 @@ image:
   repository: ghcr.io/dmuix/project-bot
   pullPolicy: IfNotPresent
   # Preferred: pin an immutable image digest (e.g. "sha256:...")
-  digest: "sha256:40e401e6857febad9fa32a1b73f2f424ec05aef5675a742ce5ec285e657fc6ad"
+  digest: "sha256:25c4b5f0c013b95bddeb88d242d2f7804c4019a06440350e3372f00eae074bfd"
   # Fallback tag used only when image.digest is empty
   tag: "latest"
 
