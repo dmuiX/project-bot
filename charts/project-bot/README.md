@@ -7,9 +7,11 @@ Deploys **Project Bot** on Kubernetes with:
 - Inline or pre-existing `Secret` for API keys & IMAP credentials
 - Optional Gateway API `HTTPRoute` (with explicit `backendRefs` defaults for ArgoCD SSA)
 
-## 1. Create the Secrets first
+## 1. Create the Secrets first (optional if `llm.enabled: false`)
 
-Project Bot reads API keys and credentials from environment variables via `existingSecret` (recommended) — never commit API keys to Git:
+To run **purely locally** (RSS scraping, keyword/suitability scoring, and web dashboard without any LLM calls or API keys), set `llm.enabled: false` and leave `existingSecret: ""` — no Kubernetes Secret is required.
+
+If you enable LLM evaluation/application generation (`llm.enabled: true`, default), Project Bot reads API keys and credentials from environment variables via `existingSecret` (recommended) — never commit API keys to Git:
 
 ```bash
 kubectl create namespace project-bot

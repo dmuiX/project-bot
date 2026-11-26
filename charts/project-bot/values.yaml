@@ -41,6 +41,12 @@ env:
   LOG_ROTATION_WHEN: MIDNIGHT
   LOG_BACKUP_COUNT: "10"
 
+# Enable or disable LLM-based evaluation and application generation.
+# When false, Project Bot runs purely locally (scraping, keyword/suitability scoring, dashboard)
+# and requires no LLM API keys or Kubernetes Secret.
+llm:
+  enabled: true
+
 # Credentials / API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY,
 # EMAIL_PASSWORD, FREELANCE_USERNAME, FREELANCE_PASSWORD, ...)
 # Recommended: reference an existing Secret (e.g. via ExternalSecrets / SOPS / SealedSecrets).

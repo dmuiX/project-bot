@@ -184,6 +184,14 @@ def analyze_with_llm(cv_content: str, project_offer: str, config: Dict[str, Any]
     Returns:
         A dictionary with 'fit_score' and 'rationale'.
     """
+    if (
+        os.environ.get("LLM_ENABLED", "true").strip().lower() in ("0", "false", "no", "off")
+        or config.get("llm", {}).get("enabled") is False
+    ):
+        msg = "LLM evaluation disabled (LLM_ENABLED=false)."
+        logger.info(msg)
+        return {"fit_score": 0, "rationale": msg}
+
     provider = config.get('llm', {}).get('provider')
     model = config.get('llm', {}).get('model')
     api_key = config.get('llm', {}).get('api_key')
