@@ -1,5 +1,5 @@
 # Multi-stage build for frontend and backend
-FROM --platform=$BUILDPLATFORM node:18-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS frontend-builder
 
 # Install git for version tag detection
 RUN apk add --no-cache git
@@ -18,7 +18,7 @@ RUN npm ci
 RUN npm run build
 
 # Main application container
-FROM python:3.11-slim
+FROM python:3.12-slim@sha256:5b5fe805d367f8f5a359ded6ab2652b7f9a206453ee6ee789c0045ba6ec15016
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -58,7 +58,10 @@ WORKDIR /app
 
 # Copy Python requirements and install dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade setuptools \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip uninstall -y pip wheel \
+    && rm -rf /usr/local/lib/python3.12/ensurepip
 
 # Install Playwright browsers into a shared path readable by non-root user
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
