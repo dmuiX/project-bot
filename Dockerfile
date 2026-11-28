@@ -18,7 +18,7 @@ RUN npm ci
 RUN npm run build
 
 # Main application container
-FROM python:3.12-slim@sha256:5b5fe805d367f8f5a359ded6ab2652b7f9a206453ee6ee789c0045ba6ec15016
+FROM python:3.14-slim@sha256:f57c4c23b985d95deea5bc5249e2f9c8a512b4cc9d5d3fd31900cbd2f5f0a604
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -61,7 +61,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade setuptools \
     && pip install --no-cache-dir -r requirements.txt \
     && pip uninstall -y pip wheel \
-    && rm -rf /usr/local/lib/python3.12/ensurepip
+    && rm -rf /usr/local/lib/python3.14/ensurepip
 
 # Install Playwright browsers into a shared path readable by non-root user
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
